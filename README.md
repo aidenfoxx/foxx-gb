@@ -3,11 +3,11 @@ FoxxGB is a simple Gameboy written in C designed to be highly portable. Display 
 
 ### What's implemented?
 - All CPU instructions
-- Gameboy MMU
+- Memory Management
 - GPU timings with interrupts
 - Timer with interrupts
 - Input with interrupts
-- Support for 32kb ROM only Cartridges
+- Support for 32kb ROM only cartridges
 - Background and basic sprite support
 
 ### What's not implemented?
