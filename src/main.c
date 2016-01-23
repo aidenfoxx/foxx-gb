@@ -168,25 +168,25 @@ int main(int argc, const char* argv[])
 	/**
 	 * Initialize GLFW
 	 */
-    if (!glfwInit())
-    {
-    	printf("ERROR: Failed to initialize GLFW.\n");
-    	getchar();
-        return -1;
-    }
+	if (!glfwInit())
+	{
+		printf("ERROR: Failed to initialize GLFW.\n");
+		getchar();
+		return -1;
+	}
 
-    window = glfwCreateWindow(160, 144, "FoxxGB", NULL, NULL);
+	window = glfwCreateWindow(160, 144, "FoxxGB", NULL, NULL);
 
-    if (!window)
-    {
-    	printf("ERROR: Failed to create application window.\n");
-        glfwTerminate();
-        getchar();
-        return -1;
-    }
+	if (!window)
+	{
+		printf("ERROR: Failed to create application window.\n");
+		glfwTerminate();
+		getchar();
+		return -1;
+	}
 
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1);
+	glfwMakeContextCurrent(window);
+	glfwSwapInterval(1);
 
 	/**
 	 * Bind various callbacks
@@ -201,7 +201,7 @@ int main(int argc, const char* argv[])
 		gameboyStep(gameboy);
 	}
 
-    glfwTerminate();
+	glfwTerminate();
 
 	/**
 	 * Free the application memory

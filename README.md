@@ -17,6 +17,16 @@ FoxxGB is a simple Gameboy written in C designed to be highly portable. Display 
 - Stat interrupts
 - Full cartridge support (MBC 1,2,3 etc)
 
+## How to use
+To play a game simply drag the rom onto the executable.
+
+### Controls
+Directions = Up, Down, Left, Right
+Start = Enter
+Select = Space
+B = Z
+A = X
+
 ## Why make another Gameboy emulator?
 
 *The short answer:* I was bored.
