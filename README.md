@@ -6,7 +6,7 @@ FoxxGB is a simple Gameboy written in C designed to be highly portable.
 
 *The long answer:* I'd always wanted to make an emulator, but the task always seems too much of a mountain to climb. I chose the Gameboy due to the obvious challenge, and excellent documentation surrounding the hardware. The choice was also motivated by CTurt's Gameboy emulator Cinoop (https://github.com/CTurt/Cinoop), the documentation for which helped me a number of times during development.
 
-## What's implemented?
+### What's implemented?
 - All CPU instructions
 - Gameboy MMU
 - GPU timings with interrupts
@@ -15,8 +15,7 @@ FoxxGB is a simple Gameboy written in C designed to be highly portable.
 - Support for 32kb ROM only Cartridges
 - Background and basic sprite support
 
-
-## What's not implemented?
+### What's not implemented?
 - Sound
 - Advanced sprite functionality (Palettes etc)
 - Full sprite priority support
