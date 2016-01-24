@@ -24,14 +24,6 @@ void gameboyInit(Gameboy *gameboy, Cartridge *cartridge)
 	gameboy->joypad = joypad;
 }
 
-void gameboyStep(Gameboy *gameboy)
-{
-	inputStep(gameboy->joypad, gameboy->mmu);
-	cpuStep(gameboy->cpu, gameboy->mmu);
-	timerStep(gameboy->timer, gameboy->mmu, gameboy->cpu->cycles);
-	displayStep(gameboy->display, gameboy->mmu, gameboy->cpu->cycles);
-}
-
 void gameboyFree(Gameboy *gameboy)
 {
 	cpuFree(gameboy->cpu);
@@ -41,4 +33,12 @@ void gameboyFree(Gameboy *gameboy)
 	free(gameboy->timer);
 	free(gameboy->display);
 	free(gameboy->joypad);
+}
+
+void gameboyStep(Gameboy *gameboy)
+{
+	inputStep(gameboy->joypad, gameboy->mmu);
+	cpuStep(gameboy->cpu, gameboy->mmu);
+	timerStep(gameboy->timer, gameboy->mmu, gameboy->cpu->cycles);
+	displayStep(gameboy->display, gameboy->mmu, gameboy->cpu->cycles);
 }

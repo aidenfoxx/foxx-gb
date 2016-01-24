@@ -17,6 +17,8 @@ FoxxGB is a simple Gameboy written in C designed to be highly portable. Display 
 - Stat interrupts
 - Full cartridge support (MBC 1,2,3 etc)
 
+![FoxxGB Running Tetris](images/tetris.png)
+
 ## How to use
 To play a game simply drag the rom onto the executable.
 

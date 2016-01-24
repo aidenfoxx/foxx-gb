@@ -17,7 +17,7 @@ typedef struct {
 } Gameboy;
 
 void gameboyInit(Gameboy*, Cartridge*);
-void gameboyStep(Gameboy*);
 void gameboyFree(Gameboy*);
+void gameboyStep(Gameboy*);
 
 #endif

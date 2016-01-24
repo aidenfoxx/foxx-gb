@@ -1,7 +1,7 @@
 #include "timer.h"
 
 const static uint16_t timaPeriods[4] = {
-	0x400, 0x10, 0x40, 0x100
+	0x0400, 0x10, 0x40, 0x0100
 };
 
 void timerInit(Timer *timer)
