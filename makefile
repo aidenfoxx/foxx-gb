@@ -8,7 +8,12 @@ INC_DIR=include/
 # Standard Build Flags
 CC=gcc
 CFLAGS=-O3 -std=c99 -pedantic -c -Wall -I $(INC_DIR)
-LDFLAGS=-L $(LIB_DIR) -static -lmingw32 -lglfw3dll -lopengl32 
+
+ifeq ($(OS),Windows_NT)
+    LDFLAGS=-L $(LIB_DIR) -lglfw3dll -lopengl32
+else
+    LDFLAGS=-lglfw3 -lGL -lX11 -lXi -lXrandr -lXxf86vm -lXinerama -lXcursor -lrt -lm -pthread -ldl
+endif
 
 # Files
 SRC=$(wildcard $(SRC_DIR)*.c) $(wildcard $(SRC_DIR)*/*.c)
