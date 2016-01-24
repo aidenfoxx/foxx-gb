@@ -21,18 +21,18 @@ FoxxGB is a simple Gameboy written in C designed to be highly portable. Display 
 To play a game simply drag the rom onto the executable.
 
 ### Controls
-- Directions = Up, Down, Left, Right
-- Start = Enter
-- Select = Space
-- B = Z
-- A = X
-- Close = Escape
+Directions = Up, Down, Left, Right  
+Start = Enter  
+Select = Space  
+B = Z  
+A = X  
+Close = Escape  
 
 ## Why make another Gameboy emulator?
 
 *The short answer:* I was bored.
 
-*The long answer:* I'd always wanted to make an emulator, but the task always seems too much of a mountain to climb. I chose the Gameboy due to the obvious challenge, and excellent documentation surrounding the hardware. The choice was also motivated by CTurt's Gameboy emulator Cinoop (https://github.com/CTurt/Cinoop), the documentation for which helped me a number of times during development.
+*The long answer:* I'd always wanted to make an emulator, but the task always seemed too much of a mountain to climb. I chose the Gameboy due to the obvious challenge, and excellent documentation surrounding the hardware. The choice was also motivated by CTurt's Gameboy emulator Cinoop (https://github.com/CTurt/Cinoop), the documentation for which helped me a number of times during development.
 
 ## Notes
 The emulator is still very rough and has not been completely tested. The only game likely to work is Tetris.

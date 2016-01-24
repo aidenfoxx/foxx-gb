@@ -37,6 +37,20 @@ void displayStep(Display *display, MMU *mmu, uint8_t cycles)
 					}
 					
 					/**
+					 * Handle OAM DMA copy request
+					 */
+					uint8_t dma = mmuReadByte(mmu, 0xff46);
+
+					if (dma)
+					{
+						for (int i = 0; i < 160; i++)
+						{
+							mmuWriteByte(mmu, 0xFE00 + i, mmuReadByte(mmu, (dma * 256) + i));
+						}
+						mmuWriteByte(mmu, 0xff46, 0x00);
+					}
+					
+					/**
 					 * Don't draw if not required
 					 */
 					if (display->draw)
@@ -70,20 +84,6 @@ void displayStep(Display *display, MMU *mmu, uint8_t cycles)
 				{ 
 					display->scanline = 0;
 					display->mode = DISPLAY_MODE_OAM;
-				}
-
-				/**
-				 * Handle OAM DMA copy request
-				 */
-				uint8_t dma = mmuReadByte(mmu, 0xff46);
-
-				if (dma)
-				{
-					for (int i = 0; i < 160; i++)
-					{
-						mmuWriteByte(mmu, 0xFE00 + i, mmuReadByte(mmu, (dma * 256) + i));
-					}
-					mmuWriteByte(mmu, 0xff46, 0x00);
 				}
 
 				/**
