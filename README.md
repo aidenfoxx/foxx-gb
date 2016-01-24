@@ -1,6 +1,8 @@
 # FoxxGB
 FoxxGB is a simple Gameboy written in C designed to be highly portable. Display and input are abstracted so that they can be tied into various devices without altering the emulation core.
 
+![FoxxGB Running Tetris](images/tetris.png)
+
 ### What's implemented?
 - All CPU instructions
 - Memory Management
@@ -16,8 +18,6 @@ FoxxGB is a simple Gameboy written in C designed to be highly portable. Display 
 - Full sprite priority support
 - Stat interrupts
 - Full cartridge support (MBC 1,2,3 etc)
-
-![FoxxGB Running Tetris](images/tetris.png)
 
 ## How to use
 To play a game simply drag the rom onto the executable.
