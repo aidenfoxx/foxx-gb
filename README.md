@@ -1,7 +1,8 @@
 # FoxxGB
+![FoxxGB Running Tetris](images/tetris.png)){:style="float: right; margin-left: 10px; margin-bottom: 5px;"}
 FoxxGB is a simple Gameboy written in C designed to be highly portable. Display and input are abstracted so that they can be tied into various devices without altering the emulation core.
 
-![FoxxGB Running Tetris](images/tetris.png)
+
 
 ### What's implemented?
 - All CPU instructions
