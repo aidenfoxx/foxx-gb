@@ -15,7 +15,7 @@ int cartridgeInit(Cartridge *cartridge, char path[])
 
 	uint8_t *buffer = (uint8_t*) malloc(length + 0x01);
 
-	if (length != fread(buffer, 0x1, length, file)) 
+	if (length != fread(buffer, 0x01, length, file)) 
 	{ 
 		free(buffer);
 		return -2;

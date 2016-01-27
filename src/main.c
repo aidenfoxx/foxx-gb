@@ -137,7 +137,8 @@ int main(int argc, const char* argv[])
 		return -1;
 	}
 
-	strncpy(gamePath, argv[1], sizeof(gamePath));
+	strncpy(gamePath, argv[1], sizeof(gamePath) - 1);
+	gamePath[sizeof(gamePath) - 1] = '\0';
 
 	printf("EVENT: Loading cartridge...\n");
 

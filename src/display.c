@@ -182,7 +182,7 @@ void displayScanline(Display *display, MMU *mmu)
 		for (int i = 39; i >= 0; i--)
 		{
 			/**
-			 * 4 Bytes in per OAM record
+			 * 4 Bytes per OAM record
 			 */
 			uint8_t posX = mmuReadByte(mmu, oamAddress + (i * 4) + 0x01) - 0x08;
 			uint8_t posY = mmuReadByte(mmu, oamAddress + (i * 4)) - 0x10;
