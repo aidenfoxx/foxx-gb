@@ -1,10 +1,10 @@
 #include <stdio.h>
+#include <GLFW/glfw3.h>
 
 #include "cartridge.h"
 #include "gameboy.h"
 #include "display.h"
 #include "input.h"
-#include "glfw/glfw3.h"
 
 static Cartridge *cartridge;
 static Gameboy* gameboy;

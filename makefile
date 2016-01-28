@@ -1,6 +1,5 @@
 # Build paths
 OBJ_DIR=build/
-LIB_DIR=lib/
 BIN_DIR=bin/
 SRC_DIR=src/
 INC_DIR=include/
@@ -10,7 +9,7 @@ CC=gcc
 CFLAGS=-O3 -std=c99 -pedantic -c -Wall -I $(INC_DIR)
 
 ifeq ($(OS), Windows_NT)
-    LDFLAGS=-L $(LIB_DIR) -lglfw3dll -lopengl32
+    LDFLAGS=-lglfw3dll -lopengl32
 else
     LDFLAGS=-lglfw3 -lGL -lX11 -lXi -lXrandr -lXxf86vm -lXinerama -lXcursor -lrt -lm -pthread -ldl
 endif

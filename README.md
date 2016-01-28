@@ -22,6 +22,9 @@ FoxxGB is a simple Gameboy written in C designed to be highly portable. Display 
 ## How to use
 To play a game simply drag the rom onto the executable.
 
+# Requirements
+FoxxGB requires the GLFW3 library to compile.
+
 ### Controls
 Directions = Up, Down, Left, Right  
 Start = Enter  
