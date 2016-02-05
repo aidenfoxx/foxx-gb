@@ -8,8 +8,8 @@
 #include "input.h"
 
 static Cartridge *cartridge;
-static Gameboy* gameboy;
-static GLFWwindow* window;
+static Gameboy *gameboy;
+static GLFWwindow *window;
 
 static uint8_t framebuffer[23040][3];
 const static uint8_t pallet[4][3] = {
@@ -28,7 +28,8 @@ void renderFunction(int x, int y, int color)
 
 void drawFunction()
 {
-	int width, height;
+	int width;
+	int height;
 	glfwGetFramebufferSize(window, &width, &height);
 
 	/**
@@ -188,7 +189,8 @@ int main(int argc, const char* argv[])
 		getchar();
 		return -1;
 	}
-	else if (error == -2)
+	
+	if (error == -2)
 	{
 		printf("ERROR: Could not read cartridge file.\n");
 		getchar();

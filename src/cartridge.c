@@ -13,7 +13,7 @@ int cartridgeInit(Cartridge *cartridge, char path[])
 	int length = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
-	uint8_t *buffer = (uint8_t*) malloc(length + 0x01);
+	uint8_t *buffer = malloc(length + 0x01);
 
 	if (length != fread(buffer, 0x01, length, file)) 
 	{ 
