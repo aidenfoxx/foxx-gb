@@ -4,7 +4,7 @@ int cartridgeInit(Cartridge *cartridge, char path[])
 {
 	FILE *file = fopen(path, "rb");
 
-	if (file == NULL)
+	if (!file)
 	{
 		return -1;
 	}

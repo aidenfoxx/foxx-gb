@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <GLFW/glfw3.h>
 
 #include "cartridge.h"
@@ -27,10 +28,46 @@ void renderFunction(int x, int y, int color)
 
 void drawFunction()
 {
-	glClear(GL_COLOR_BUFFER_BIT); 
-	glRasterPos2f(-1, 1); 
-	glPixelZoom(1, -1); 
-	glDrawPixels(160, 144, GL_RGB, GL_UNSIGNED_BYTE, framebuffer); 
+	int width, height;
+	glfwGetFramebufferSize(window, &width, &height);
+
+	/**
+	 * Clear window.
+	 */
+	glViewport(0, 0, width, height);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glOrtho(0, width, height, 0, 0, 1);
+	
+	/**
+	 * Generate texture from framebuffer.
+	 */
+	GLuint texture;
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 160, 144, 0, GL_RGB, GL_UNSIGNED_BYTE, framebuffer);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	/**
+	 * Define and draw texture coordinates.
+	 */
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glBegin(GL_QUADS);
+
+	glTexCoord2f(0, 0); glVertex2f(0, 0); 
+	glTexCoord2f(1, 0); glVertex2f(width, 0); 
+	glTexCoord2f(1, 1); glVertex2f(width, height); 
+	glTexCoord2f(0, 1); glVertex2f(0, height); 
+
+	glEnd();
+	glDisable(GL_TEXTURE_2D);
+	glDeleteTextures(1, &texture);
+
 	glfwSwapBuffers(window);
 }
 
