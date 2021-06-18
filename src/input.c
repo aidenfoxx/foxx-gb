@@ -10,21 +10,18 @@ void inputStep(Joypad *joypad, MMU *mmu)
 {
 	uint8_t input = mmuReadByte(mmu, 0xFF00);
 
-	if (!(input & 0x10))
-	{
-		mmuWriteByte(mmu, 0xFF00, (input & 0xF0) + (joypad->directions & 0x0F));
+	if (!(input & 0x10)) {
+		mmuWriteByte(mmu, 0xFF00, input & (0xF0 + joypad->directions) & 0x0F);
 	}
 
-	if (!(input & 0x20))
-	{
-		mmuWriteByte(mmu, 0xFF00, (input & 0xF0) + (joypad->buttons & 0x0F));
+	if (!(input & 0x20)) {
+		mmuWriteByte(mmu, 0xFF00, input & (0xF0 + joypad->buttons) & 0x0F);
 	}
 }
 
 void inputTrigger(Joypad *joypad, MMU *mmu, int button)
 {
-	switch (button)
-	{
+	switch (button) {
 		case BUTTON_UP:
 			joypad->directions &= 0xFB;
 			break;
@@ -61,16 +58,14 @@ void inputTrigger(Joypad *joypad, MMU *mmu, int button)
 	/**
 	 * Set joypad interrupt flag
 	 */
-	if (mmuReadByte(mmu, 0xFFFF) & 0x10)
-	{
+	if (mmuReadByte(mmu, 0xFFFF) & 0x10) {
 		mmuWriteByte(mmu, 0xFF0F, mmuReadByte(mmu, 0xFF0F) | 0x10);
 	}
 }
 
 void inputRelease(Joypad *joypad, int button)
 {
-	switch (button)
-	{
+	switch (button) {
 		case BUTTON_UP:
 			joypad->directions |= 0x04;
 			break;

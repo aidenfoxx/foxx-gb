@@ -2,9 +2,6 @@
 
 void gameboyInit(Gameboy *gameboy, Cartridge *cartridge)
 {
-	CPU *cpu = malloc(sizeof(CPU));
-	cpuInit(cpu);
-
 	MMU *mmu = malloc(sizeof(MMU));
 	mmuInit(mmu, cartridge);
 
@@ -17,7 +14,6 @@ void gameboyInit(Gameboy *gameboy, Cartridge *cartridge)
 	Joypad *joypad = malloc(sizeof(Joypad));
 	inputInit(joypad);
 
-	gameboy->cpu = cpu;
 	gameboy->mmu = mmu;
 	gameboy->timer = timer;
 	gameboy->display = display;
@@ -26,9 +22,7 @@ void gameboyInit(Gameboy *gameboy, Cartridge *cartridge)
 
 void gameboyFree(Gameboy *gameboy)
 {
-	cpuFree(gameboy->cpu);
 	mmuFree(gameboy->mmu);
-	free(gameboy->cpu);
 	free(gameboy->mmu);
 	free(gameboy->timer);
 	free(gameboy->display);
@@ -38,7 +32,7 @@ void gameboyFree(Gameboy *gameboy)
 void gameboyStep(Gameboy *gameboy)
 {
 	inputStep(gameboy->joypad, gameboy->mmu);
-	cpuStep(gameboy->cpu, gameboy->mmu);
-	timerStep(gameboy->timer, gameboy->mmu, gameboy->cpu->cycles);
-	displayStep(gameboy->display, gameboy->mmu, gameboy->cpu->cycles);
+	cpuStep(&gameboy->cpu, gameboy->mmu);
+	timerStep(gameboy->timer, gameboy->mmu, gameboy->cpu.cycles);
+	displayStep(gameboy->display, gameboy->mmu, gameboy->cpu.cycles);
 }

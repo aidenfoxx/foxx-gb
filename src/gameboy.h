@@ -9,7 +9,7 @@
 #include "input.h"
 
 typedef struct {
-	CPU *cpu;
+	CPU cpu;
 	MMU *mmu;
 	Timer *timer;
 	Display *display;

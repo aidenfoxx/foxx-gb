@@ -42,11 +42,9 @@ void mmuFree(MMU *mmu)
 
 uint8_t mmuReadByte(MMU *mmu, uint16_t address)
 {
-	switch (address & 0xF000)
-	{
+	switch (address & 0xF000) {
 		case 0x0000:
-			if(address < 0x0100 && mmu->bios)
-			{
+			if(address < 0x0100 && mmu->bios) {
 				return bios[address];
 			}
 			return mmu->cartridge->rom0[address];
@@ -76,8 +74,7 @@ uint8_t mmuReadByte(MMU *mmu, uint16_t address)
 			return mmu->memory->wram[address & 0x1FFF];
 
 		case 0xF000:
-			switch (address & 0x0F00)
-			{
+			switch (address & 0x0F00) {
 				case 0x0000: case 0x0100: case 0x0200: case 0x0300:
 				case 0x0400: case 0x0500: case 0x0600: case 0x0700:
 				case 0x0800: case 0x0900: case 0x0A00: case 0x0B00:
@@ -85,18 +82,14 @@ uint8_t mmuReadByte(MMU *mmu, uint16_t address)
 					return mmu->memory->wram[address & 0x1DFF];
 
 				case 0x0E00:
-					if (address < 0xFEA0)
-					{
+					if (address < 0xFEA0) {
 						return mmu->memory->oam[address & 0xFF];
 					}
 
 				case 0x0F00:
-					if (address < 0xFF80)
-					{
+					if (address < 0xFF80) {
 						return mmu->memory->io[address & 0x7F];
-					}
-					if (address < 0xFFFF)
-					{
+					} else if (address < 0xFFFF) {
 						return mmu->memory->hram[address & 0x7F];
 					}
 					return mmu->memory->ie;
@@ -119,8 +112,7 @@ uint16_t mmuReadWord(MMU *mmu, uint16_t address)
 
 void mmuWriteByte(MMU *mmu, uint16_t address, uint8_t data)
 {
-	switch (address & 0xF000)
-	{
+	switch (address & 0xF000) {
 		case 0x8000:
 		case 0x9000:
 			mmu->memory->vram[address & 0x1FFF] = data;
@@ -136,23 +128,18 @@ void mmuWriteByte(MMU *mmu, uint16_t address, uint8_t data)
 			return;
 
 		case 0xF000:
-			switch (address & 0x0F00)
-			{
+			switch (address & 0x0F00) {
 				case 0x0E00:
-					if (address < 0xFEA0)
-					{
+					if (address < 0xFEA0) {
 						mmu->memory->oam[address & 0xFF] = data;
 						return;
 					}
 
 				case 0x0F00:
-					if (address < 0xFF80)
-					{
+					if (address < 0xFF80) {
 						mmu->memory->io[address & 0x7F] = data;
 						return;
-					}
-					else if (address < 0xFFFF)
-					{
+					} else if (address < 0xFFFF) {
 						mmu->memory->hram[address & 0x7F] = data;
 						return;
 					}

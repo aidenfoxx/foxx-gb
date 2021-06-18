@@ -14,8 +14,7 @@ void timerStep(Timer *timer, MMU *mmu, uint8_t cycles)
 {
 	timer->divcount += cycles;
 
-	if (timer->divcount >= 0x40)
-	{
+	if (timer->divcount >= 0x40)	{
 		mmuWriteByte(mmu, 0xFF04, mmuReadByte(mmu, 0xFF04) + 0x01);
 		timer->divcount -= 0x40;
 	}
@@ -25,31 +24,25 @@ void timerStep(Timer *timer, MMU *mmu, uint8_t cycles)
 	/**
 	 * Increment TIMA if enabled
 	 */
-	if (tac & 0x04)
-	{
+	if (tac & 0x04) {
 		timer->timacount += cycles;
 
-		if (timer->timacount >= timaPeriods[tac & 0x03])
-		{
+		if (timer->timacount >= timaPeriods[tac & 0x03]) {
 			mmuWriteByte(mmu, 0xFF05, mmuReadByte(mmu, 0xFF05) + 0x01);
 			timer->timacount -= timaPeriods[tac & 0x03];
-			
-			if (mmuReadByte(mmu, 0xFF05) == 0)
-			{
+
+			if (mmuReadByte(mmu, 0xFF05) == 0) {
 				mmuWriteByte(mmu, 0xFF05, mmuReadByte(mmu, 0xFF06));
 
 				/**
 				 * Set timer interrupt flag
 				 */
-				if (mmuReadByte(mmu, 0xFFFF) & 0x04)
-				{
+				if (mmuReadByte(mmu, 0xFFFF) & 0x04) {
 					mmuWriteByte(mmu, 0xFF0F, mmuReadByte(mmu, 0xFF0F) | 0x04);
 				}
 			}
 		}
-	}
-	else
-	{
+	} else {
 		timer->timacount = 0x00;
 	}
 }

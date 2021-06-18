@@ -3,14 +3,14 @@
 void debugCPU(CPU *cpu, MMU *mmu, uint8_t opcode)
 {
 	printf("\n");
-	printf("%x: OPERATION: %x (%s)\n", cpu->r->pc, opcode, !cpu->cb ? debugCPUOpcode(opcode) : debugCPUOpcodeCB(opcode));
+	printf("%x: OPERATION: %x (%s)\n", cpu->regs.pc, opcode, !cpu->cb ? debugCPUOpcode(opcode) : debugCPUOpcodeCB(opcode));
 	printf("\n");
-	printf("AF: %x\n", (cpu->r->a << 8) + cpu->r->f);
-	printf("BC: %x\n", (cpu->r->b << 8) + cpu->r->c);
-	printf("DE: %x\n", (cpu->r->d << 8) + cpu->r->e);
-	printf("HL: %x\n", (cpu->r->h << 8) + cpu->r->l);
-	printf("SP: %x\n", cpu->r->sp);
-	printf("PC: %x\n", cpu->r->pc);
+	printf("AF: %x\n", (cpu->regs.a << 8) + cpu->regs.f);
+	printf("BC: %x\n", (cpu->regs.b << 8) + cpu->regs.c);
+	printf("DE: %x\n", (cpu->regs.d << 8) + cpu->regs.e);
+	printf("HL: %x\n", (cpu->regs.h << 8) + cpu->regs.l);
+	printf("SP: %x\n", cpu->regs.sp);
+	printf("PC: %x\n", cpu->regs.pc);
 	printf("\n");
 	printf("EI: %i ", cpu->ei);
 	printf("IME: %i\n", cpu->ime);

@@ -14,14 +14,14 @@ typedef struct {
 	uint8_t a; uint8_t b; uint8_t c; uint8_t d;
 	uint8_t e; uint8_t f; uint8_t h; uint8_t l;
 	uint16_t sp; uint16_t pc; 
-} Registers;
+} CPURegs;
 
 typedef struct {
-	Registers *r;
-	uint8_t cycles;
+	CPURegs regs;
+	unsigned cycles;
 	int cb;
 	int ei; int ime;
-	int halt; int stop;
+	int halt; int stop; // TODO: What types should the flags be?
 } CPU;
 
 void cpuInit(CPU*);

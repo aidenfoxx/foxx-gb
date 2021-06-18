@@ -4,19 +4,17 @@ int cartridgeInit(Cartridge *cartridge, char path[])
 {
 	FILE *file = fopen(path, "rb");
 
-	if (!file)
-	{
+	if (!file) {
 		return -1;
 	}
 
 	fseek(file, 0, SEEK_END);
-	int length = ftell(file);
+	unsigned length = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
-	uint8_t *buffer = malloc(length + 0x01);
+	char *buffer = malloc(length + 0x01);
 
-	if (length != fread(buffer, 0x01, length, file)) 
-	{ 
+	if (length != fread(buffer, 0x01, length, file)) {
 		free(buffer);
 		return -2;
 	}
@@ -27,12 +25,10 @@ int cartridgeInit(Cartridge *cartridge, char path[])
 	memcpy(&cartridge->id, &buffer[CART_ID_OFFSET], sizeof(cartridge->id));
 	memcpy(&cartridge->name, &buffer[CART_NAME_OFFSET], sizeof(cartridge->name));
 
-	if (length > 32767)
-	{
+	if (length > 32767) {
 		memcpy(&cartridge->rom1[0], &buffer[CART_ROM1_OFFSET], sizeof(cartridge->rom1));
 	}
 
-	free(buffer); 
-
+	free(buffer);
 	return 1;
 }
