@@ -103,39 +103,28 @@ void displayScanline(Display *display, MMU *mmu)
 	 * BG layer
 	 */
 	if (lcdc & 0x1) {
-		uint16_t tilemapAddress = lcdc & 0x8 ? 0x9C00 : 0x9800;
-		uint16_t tiledataAddress = lcdc & 0x10 ? 0x8000 : 0x8800;
+		uint16_t mapAddress = lcdc & 0x8 ? 0x9C00 : 0x9800;
+		uint16_t dataAddress = lcdc & 0x10 ? 0x8000 : 0x8800;
 
-		uint8_t scrollX = mmuReadByte(mmu, 0xFF43);
-		uint8_t scrollY = mmuReadByte(mmu, 0xFF42);
+		uint8_t scrollX = mmuReadByte(mmu, 0xFF43); // 0xFF43 = Scroll position X
+		uint8_t scrollY = mmuReadByte(mmu, 0xFF42); // 0xFF42 = Scroll position Y
 
-		uint8_t mapOffsetX = scrollX / 8;
-		uint8_t mapOffsetY = (scrollY + display->scanline) / 8;
-
-		uint8_t tileX = scrollX % 8;
-		uint8_t tileY = (display->scanline + scrollY) % 8;
-
-		uint8_t tileAddress = 0x0;
-		uint16_t tileLine = 0;
+		uint8_t tileY = scrollY + display->scanline;
+		uint8_t tileRow = tileY % 8;
 
 		for (int x = 0; x < 160; x++) {
-			if (!x || tileX == 8) {
-				if (x > 0) {
-					tileX = 0;
-					mapOffsetX++;
-				}
+			uint8_t tileX = scrollX + x;
+			uint8_t tileColumn = tileX % 8;
+			uint8_t tileIndex = mmuReadByte(mmu, mapAddress + (tileX / 8) + (tileY / 8) * 32);
+			tileIndex += dataAddress == 0x8800 ? 128 : 0; // Set signed addressing
 
-				/**
-				 * 16 Bytes in a Tile
-				 * 2 Bytes in a Tile Line
-				 */
-				tileAddress = mmuReadByte(mmu, tilemapAddress + mapOffsetX + (mapOffsetY * 32));
-				tileAddress += tiledataAddress == 0x8800 ? 0x80 : 0x0; /* Signed check */
-				tileLine = mmuReadWord(mmu, tiledataAddress + (tileAddress * 16) + (tileY * 2));
-			}
+			/**
+			 * 16 Bytes in a tile
+			 * 2 Bytes in a line
+			 */
+			uint16_t tileLine = mmuReadWord(mmu, dataAddress + (tileIndex * 16) + (tileRow * 2));
 
-			display->render(x, display->scanline, displayGetColor(tileLine, 1 << (7 - tileX)));
-			tileX++;
+			display->render(x, display->scanline, displayGetColor(tileLine, 1 << (7 - tileColumn)));
 		}
 	}
 
