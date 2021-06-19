@@ -1,9 +1,7 @@
 #include "display.h"
 
-void displayInit(Display *display)
-{
-	display->mode = DISPLAY_MODE_HBLANK;
-}
+static void displayScanline(Display*, MMU*);
+static int displayGetColor(uint16_t, uint8_t);
 
 void displaySetRenderCallback(Display *display, RenderCallback callback)
 {
@@ -21,11 +19,9 @@ void displayStep(Display *display, MMU *mmu, uint8_t cycles)
 	display->cycles += cycles;
 
 	switch (display->mode) {
-		case DISPLAY_MODE_HBLANK:
-			if (display->cycles > 203)
-			{
-				if (display->scanline == 143)
-				{
+		case DISPLAY_HBLANK:
+			if (display->cycles >= 204) {
+				if (display->scanline == 143) {
 					/**
 					 * Set vblank interrupt flag
 					 */
@@ -49,9 +45,9 @@ void displayStep(Display *display, MMU *mmu, uint8_t cycles)
 						display->draw();
 					}
 
-					display->mode = DISPLAY_MODE_VBLANK;
+					display->mode = DISPLAY_VBLANK;
 				} else {
-					display->mode = DISPLAY_MODE_OAM;
+					display->mode = DISPLAY_OAM;
 				}
 
 				/**
@@ -62,12 +58,12 @@ void displayStep(Display *display, MMU *mmu, uint8_t cycles)
 			}
 			break;
 
-		case DISPLAY_MODE_VBLANK:
-			if (display->cycles > 455) {
+		case DISPLAY_VBLANK:
+			if (display->cycles >= 456) {
 				display->scanline++;
 
 				if (display->scanline == 153) {
-					display->mode = DISPLAY_MODE_OAM;
+					display->mode = DISPLAY_OAM;
 					display->scanline = 0;
 				}
 
@@ -79,20 +75,20 @@ void displayStep(Display *display, MMU *mmu, uint8_t cycles)
 			}
 			break;
 
-		case DISPLAY_MODE_OAM:
-			if (display->cycles > 79) {
-				display->mode = DISPLAY_MODE_VRAM;
+		case DISPLAY_OAM:
+			if (display->cycles >= 80) {
+				display->mode = DISPLAY_VRAM;
 				display->cycles -= 80;
 			}
 			break;
 
-		case DISPLAY_MODE_VRAM:
-			if (display->cycles > 171) {
+		case DISPLAY_VRAM:
+			if (display->cycles >= 172) {
 				if (display->render) {
 					displayScanline(display, mmu);
 				}
 
-				display->mode = DISPLAY_MODE_HBLANK;
+				display->mode = DISPLAY_HBLANK;
 				display->cycles -= 172;
 			}
 			break;
@@ -107,7 +103,7 @@ void displayScanline(Display *display, MMU *mmu)
 	 * BG display
 	 */
 	if (lcdc & 0x1) {
-		uint16_t tilemapAddress = lcdc & 0x08 ? 0x9C00 : 0x9800;
+		uint16_t tilemapAddress = lcdc & 0x8 ? 0x9C00 : 0x9800;
 		uint16_t tiledataAddress = lcdc & 0x10 ? 0x8000 : 0x8800;
 
 		uint8_t scrollX = mmuReadByte(mmu, 0xFF43);
@@ -119,8 +115,8 @@ void displayScanline(Display *display, MMU *mmu)
 		uint8_t tileX = scrollX % 8;
 		uint8_t tileY = (display->scanline + scrollY) % 8;
 
-		uint8_t tileAddress = 0x00;
-		uint16_t tileLine = 0x0000;
+		uint8_t tileAddress = 0x0;
+		uint16_t tileLine = 0;
 
 		for (int x = 0; x < 160; x++) {
 			if (!x || tileX == 0x08) {
@@ -134,11 +130,11 @@ void displayScanline(Display *display, MMU *mmu)
 				 * 2 Bytes in a Tile Line
 				 */
 				tileAddress = mmuReadByte(mmu, tilemapAddress + mapOffsetX + (mapOffsetY * 32));
-				tileAddress += tiledataAddress == 0x8800 ? 0x80 : 0; /* Signed check */
+				tileAddress += tiledataAddress == 0x8800 ? 0x80 : 0x0; /* Signed check */
 				tileLine = mmuReadWord(mmu, tiledataAddress + (tileAddress * 16) + (tileY * 2));
 			}
 
-			display->render(x, display->scanline, displayGetColor(tileLine, 0x01 << (7 - tileX)));
+			display->render(x, display->scanline, displayGetColor(tileLine, 1 << (7 - tileX)));
 			tileX++;
 		}
 	}

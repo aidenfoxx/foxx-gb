@@ -12,7 +12,7 @@ int cartridgeInit(Cartridge *cartridge, const char *path)
 	unsigned length = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
-	char *buffer = calloc(1, length + 1);
+	uint8_t *buffer = malloc(length);
 
 	if (length != fread(buffer, sizeof(char), length, file)) {
 		free(buffer);

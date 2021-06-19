@@ -59,7 +59,7 @@ uint8_t mmuReadByte(MMU *mmu, uint16_t address)
 			return mmu->memory.wram[address & 0x1FFF];
 
 		case 0xF000:
-			switch (address & 0x0F00) {
+			switch (address & 0xF00) {
 				case 0x0000: case 0x0100: case 0x0200: case 0x0300:
 				case 0x0400: case 0x0500: case 0x0600: case 0x0700:
 				case 0x0800: case 0x0900: case 0x0A00: case 0x0B00:

@@ -96,6 +96,7 @@ void cpuStep(CPU *cpu, MMU *mmu)
 				cpu->regs.sp -= 2;
 				mmuWriteWord(mmu, cpu->regs.sp, cpu->regs.pc);
 				cpu->regs.pc = 0x60;
+				cpu->stop = false;
 				cycles += 16;
 			}
 		}
