@@ -10,7 +10,6 @@ typedef struct {
 	uint16_t timacount;
 } Timer;
 
-void timerInit(Timer*);
 void timerStep(Timer*, MMU*, uint8_t);
 
 #endif

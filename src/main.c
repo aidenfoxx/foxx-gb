@@ -7,8 +7,8 @@
 #include "display.h"
 #include "input.h"
 
-static Cartridge *cartridge;
-static Gameboy *gameboy;
+static Cartridge cartridge;
+static Gameboy gameboy;
 static GLFWwindow *window;
 
 static uint8_t framebuffer[23040][3];
@@ -81,65 +81,65 @@ void handleInput(GLFWwindow* window, int key, int scancode, int action, int mods
 
 		case GLFW_KEY_UP:
 			if (action == GLFW_PRESS) {
-				inputTrigger(gameboy->joypad, gameboy->mmu, BUTTON_UP);
+				inputTrigger(&gameboy.joypad, &gameboy.mmu, BUTTON_UP);
 			} else if (action == GLFW_RELEASE) {
-				inputRelease(gameboy->joypad, BUTTON_UP);
+				inputRelease(&gameboy.joypad, BUTTON_UP);
 			}
 			break;
 
 		case GLFW_KEY_DOWN:
 			if (action == GLFW_PRESS) {
-				inputTrigger(gameboy->joypad, gameboy->mmu, BUTTON_DOWN);
+				inputTrigger(&gameboy.joypad, &gameboy.mmu, BUTTON_DOWN);
 			} else if (action == GLFW_RELEASE) {
-				inputRelease(gameboy->joypad, BUTTON_DOWN);
+				inputRelease(&gameboy.joypad, BUTTON_DOWN);
 			}
 			break;
 
 		case GLFW_KEY_LEFT:
 			if (action == GLFW_PRESS) {
-				inputTrigger(gameboy->joypad, gameboy->mmu, BUTTON_LEFT);
+				inputTrigger(&gameboy.joypad, &gameboy.mmu, BUTTON_LEFT);
 			} else if (action == GLFW_RELEASE) {
-				inputRelease(gameboy->joypad, BUTTON_LEFT);
+				inputRelease(&gameboy.joypad, BUTTON_LEFT);
 			}
 			break;
 
 		case GLFW_KEY_RIGHT:
 			if (action == GLFW_PRESS) {
-				inputTrigger(gameboy->joypad, gameboy->mmu, BUTTON_RIGHT);
+				inputTrigger(&gameboy.joypad, &gameboy.mmu, BUTTON_RIGHT);
 			} else if (action == GLFW_RELEASE) {
-				inputRelease(gameboy->joypad, BUTTON_RIGHT);
+				inputRelease(&gameboy.joypad, BUTTON_RIGHT);
 			}
 			break;
 
 		case GLFW_KEY_ENTER:
 			if (action == GLFW_PRESS) {
-				inputTrigger(gameboy->joypad, gameboy->mmu, BUTTON_START);
+				inputTrigger(&gameboy.joypad, &gameboy.mmu, BUTTON_START);
 			} else if (action == GLFW_RELEASE) {
-				inputRelease(gameboy->joypad, BUTTON_START);
+				inputRelease(&gameboy.joypad, BUTTON_START);
 			}
 			break;
 
 		case GLFW_KEY_SPACE:
 			if (action == GLFW_PRESS) {
-				inputTrigger(gameboy->joypad, gameboy->mmu, BUTTON_SELECT);
+				inputTrigger(&gameboy.joypad, &gameboy.mmu, BUTTON_SELECT);
 			} else if (action == GLFW_RELEASE) {
-				inputRelease(gameboy->joypad, BUTTON_SELECT);
+				inputRelease(&gameboy.joypad, BUTTON_SELECT);
 			}
 			break;
 
 		case GLFW_KEY_Z:
 			if (action == GLFW_PRESS) {
-				inputTrigger(gameboy->joypad, gameboy->mmu, BUTTON_B);
+				inputTrigger(&gameboy.joypad, &gameboy.mmu, BUTTON_B);
 			} else if (action == GLFW_RELEASE) {
-				inputRelease(gameboy->joypad, BUTTON_B);
+				inputRelease(&gameboy.joypad, BUTTON_B);
 			}
 			break;
 
 		case GLFW_KEY_X:
 			if (action == GLFW_PRESS) {
-				inputTrigger(gameboy->joypad, gameboy->mmu, BUTTON_A);
+				inputTrigger(&gameboy.joypad, &gameboy.mmu, BUTTON_A);
 			} else if (action == GLFW_RELEASE) {
-				inputRelease(gameboy->joypad, BUTTON_A);
+				inputRelease(&gameboy.joypad, BUTTON_A);
 			}
 			break;
 	}
@@ -164,8 +164,7 @@ int main(int argc, const char* argv[])
 
 	printf("EVENT: Loading cartridge...\n");
 
-	cartridge = malloc(sizeof(Cartridge));
-	error = cartridgeInit(cartridge, gamePath);
+	error = cartridgeInit(&cartridge, gamePath);
 
 	if (error == -1) {
 		printf("ERROR: Could not find cartridge file.\n");
@@ -184,8 +183,7 @@ int main(int argc, const char* argv[])
 	 */
 	printf("EVENT: Initializing gameboy...\n");
 
-	gameboy = calloc(1, sizeof(Gameboy));
-	gameboyInit(gameboy, cartridge);
+	gameboyInit(&gameboy, &cartridge);
 
 	/**
 	 * Initialize GLFW
@@ -211,24 +209,21 @@ int main(int argc, const char* argv[])
 	/**
 	 * Bind various callbacks
 	 */
-	displaySetRenderCallback(gameboy->display, renderFunction);
-	displaySetDrawCallback(gameboy->display, drawFunction);
+	displaySetRenderCallback(&gameboy.display, renderFunction);
+	displaySetDrawCallback(&gameboy.display, drawFunction);
 	glfwSetKeyCallback(window, handleInput);
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
-		gameboyStep(gameboy);
+		gameboyStep(&gameboy);
 	}
 
+	/**
+	 * Terminate
+	 */
 	glfwTerminate();
 
-	/**
-	 * Free the application memory
-	 */
 	printf("EVENT: Cleaning up memory...\n");
-	gameboyFree(gameboy);
-	free(cartridge);
-	free(gameboy);
 
 	return 0;
 }

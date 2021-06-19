@@ -10,14 +10,13 @@
 
 typedef struct {
 	CPU cpu;
-	MMU *mmu;
-	Timer *timer;
-	Display *display;
-	Joypad *joypad;
+	MMU mmu;
+	Timer timer;
+	Display display;
+	Joypad joypad;
 } Gameboy;
 
 void gameboyInit(Gameboy*, Cartridge*);
-void gameboyFree(Gameboy*);
 void gameboyStep(Gameboy*);
 
 #endif

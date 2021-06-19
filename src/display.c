@@ -2,9 +2,7 @@
 
 void displayInit(Display *display)
 {
-	display->cycles = 0x0000;
 	display->mode = DISPLAY_MODE_HBLANK;
-	display->scanline = 0;
 }
 
 void displaySetRenderCallback(Display *display, RenderCallback callback)
@@ -106,9 +104,9 @@ void displayScanline(Display *display, MMU *mmu)
 	uint8_t lcdc = mmuReadByte(mmu, 0xFF40);
 
 	/**
-	 * If BG display
+	 * BG display
 	 */
-	if (lcdc & 0x01) {
+	if (lcdc & 0x1) {
 		uint16_t tilemapAddress = lcdc & 0x08 ? 0x9C00 : 0x9800;
 		uint16_t tiledataAddress = lcdc & 0x10 ? 0x8000 : 0x8800;
 
@@ -146,9 +144,9 @@ void displayScanline(Display *display, MMU *mmu)
 	}
 
 	/**
-	 * If Sprite display
+	 * Sprite display
 	 */
-	if (lcdc & 0x02) {
+	if (lcdc & 0x2) {
 		uint16_t oamAddress = 0xFE00;
 		uint8_t spriteHeight = lcdc & 0x4 ? 0x10 : 0x8;
 

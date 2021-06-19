@@ -1,16 +1,6 @@
 #include "cpu.h"
 #include "opcode.h"
 
-void cpuInit(CPU *cpu)
-{
-
-}
-
-void cpuFree(CPU *cpu)
-{
-
-}
-
 int cpuGetFlag(CPU *cpu, int flag)
 {
 	switch (flag) {
@@ -65,11 +55,9 @@ void cpuStep(CPU *cpu, MMU *mmu)
 	if (cpu->ime && intEnabled && intFlag) {
 		uint8_t interrupt = intEnabled & intFlag;
 
-		cpu->halt = 0;
-		cpu->stop = 0;
-
 		if (interrupt) {
-			cpu->ime = 0;
+			cpu->ime = false;
+			cpu->halt = false;
 
 			if (interrupt & 0x01) { /* Vblank */
 				mmuWriteByte(mmu, 0xFF0F, intFlag & 0xFE);
@@ -117,17 +105,17 @@ void cpuStep(CPU *cpu, MMU *mmu)
 	 * Wait a cycle before IME on EI
 	 */
 	if (cpu->ei) {
-		cpu->ei = 0;
-		cpu->ime = 1;
+		cpu->ei = false;
+		cpu->ime = true;
 	}
 
 	uint8_t opcode = mmuReadByte(mmu, cpu->regs.pc);
 	cpu->regs.pc++;
 
 	if (!cpu->halt && !cpu->stop) {
-		if (cpu->cb == 1) {
+		if (cpu->cb) {
 			cycles += cpuOpcodeCB(cpu, mmu, opcode);
-			cpu->cb = 0;
+			cpu->cb = false;
 		} else {
 			cycles += cpuOpcode(cpu, mmu, opcode);
 		}

@@ -114,7 +114,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
 			return 4;
 
 		case 0x10: /* STOP 0 */
-			cpu->stop = 1;
+			cpu->stop = true;
 			return 4;
 
 		case 0x11: /* LD DE,d16 */
@@ -522,7 +522,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
 			return 10;
 
 		case 0x76: /* HALT */
-			cpu->halt = 1;
+			cpu->halt = true;
 			return 4;
 
 		case 0x77: /* LD (HL),A */
@@ -862,7 +862,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
 			return 12;
 
 		case 0xCB: /* PREFIX CB */
-			cpu->cb = 1;
+			cpu->cb = true;
 			return 4;
 
 		case 0xCC: /* CALL Z,a16 */
@@ -914,7 +914,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
 			return 10;
 
 		case 0xD9: /* RETI */
-			cpu->regs.pc = POP(mmu, &cpu->regs.sp); cpu->ime = 1;
+			cpu->regs.pc = POP(mmu, &cpu->regs.sp); cpu->ime = true;
 			return 16;
 
 		case 0xDA: /* JP C,a16 */
@@ -990,7 +990,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
 			return 10;
 
 		case 0xF3: /* DI */
-			cpu->ime = 0;
+			cpu->ime = false;
 			return 4;
 
 		case 0xF5: /* PUSH AF */
@@ -1018,7 +1018,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
 			return 16;
 
 		case 0xFB: /* EI */
-			cpu->ei = 1;
+			cpu->ei = true;
 			return 4;
 
 		case 0xFE: /* CP d8 */

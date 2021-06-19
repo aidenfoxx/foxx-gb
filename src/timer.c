@@ -4,12 +4,6 @@ const static uint16_t timaPeriods[4] = {
 	0x0400, 0x10, 0x40, 0x0100
 };
 
-void timerInit(Timer *timer)
-{
-	timer->divcount = 0x00;
-	timer->timacount = 0x00;
-}
-
 void timerStep(Timer *timer, MMU *mmu, uint8_t cycles)
 {
 	timer->divcount += cycles;

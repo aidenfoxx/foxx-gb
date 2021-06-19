@@ -21,23 +21,8 @@ const static uint8_t bios[256] = {
 
 void mmuInit(MMU *mmu, Cartridge* cartridge)
 {
-	Memory *memory = malloc(sizeof(Memory));
-
-	memset(memory->vram, 0, sizeof(memory->vram));
-	memset(memory->wram, 0, sizeof(memory->wram));
-	memset(memory->oam, 0, sizeof(memory->oam));
-	memset(memory->io, 0, sizeof(memory->io));
-	memset(memory->hram, 0, sizeof(memory->hram));
-	memory->ie = 0x00;
-
-	mmu->memory = memory;
-	mmu->cartridge = cartridge;
 	mmu->bios = 1;
-}
-
-void mmuFree(MMU *mmu)
-{
-	free(mmu->memory);
+	mmu->cartridge = cartridge;
 }
 
 uint8_t mmuReadByte(MMU *mmu, uint16_t address)
@@ -62,7 +47,7 @@ uint8_t mmuReadByte(MMU *mmu, uint16_t address)
 
 		case 0x8000:
 		case 0x9000:
-			return mmu->memory->vram[address & 0x1FFF];
+			return mmu->memory.vram[address & 0x1FFF];
 
 		case 0xA000:
 		case 0xB000:
@@ -71,7 +56,7 @@ uint8_t mmuReadByte(MMU *mmu, uint16_t address)
 		case 0xC000:
 		case 0xD000:
 		case 0xE000:
-			return mmu->memory->wram[address & 0x1FFF];
+			return mmu->memory.wram[address & 0x1FFF];
 
 		case 0xF000:
 			switch (address & 0x0F00) {
@@ -79,20 +64,21 @@ uint8_t mmuReadByte(MMU *mmu, uint16_t address)
 				case 0x0400: case 0x0500: case 0x0600: case 0x0700:
 				case 0x0800: case 0x0900: case 0x0A00: case 0x0B00:
 				case 0x0C00: case 0x0D00:
-					return mmu->memory->wram[address & 0x1DFF];
+					return mmu->memory.wram[address & 0x1DFF];
 
 				case 0x0E00:
 					if (address < 0xFEA0) {
-						return mmu->memory->oam[address & 0xFF];
+						return mmu->memory.oam[address & 0xFF];
 					}
 
 				case 0x0F00:
 					if (address < 0xFF80) {
-						return mmu->memory->io[address & 0x7F];
-					} else if (address < 0xFFFF) {
-						return mmu->memory->hram[address & 0x7F];
+						return mmu->memory.io[address & 0x7F];
 					}
-					return mmu->memory->ie;
+					if (address < 0xFFFF) {
+						return mmu->memory.hram[address & 0x7F];
+					}
+					return mmu->memory.ie;
 
 				default:
 					printf("WARNING: Could not read address: `%x`\n", address);
@@ -115,7 +101,7 @@ void mmuWriteByte(MMU *mmu, uint16_t address, uint8_t data)
 	switch (address & 0xF000) {
 		case 0x8000:
 		case 0x9000:
-			mmu->memory->vram[address & 0x1FFF] = data;
+			mmu->memory.vram[address & 0x1FFF] = data;
 			return;
 
 		case 0xA000:
@@ -124,26 +110,27 @@ void mmuWriteByte(MMU *mmu, uint16_t address, uint8_t data)
 
 		case 0xC000:
 		case 0xD000:
-			mmu->memory->wram[address & 0x1FFF] = data;
+			mmu->memory.wram[address & 0x1FFF] = data;
 			return;
 
 		case 0xF000:
 			switch (address & 0x0F00) {
 				case 0x0E00:
 					if (address < 0xFEA0) {
-						mmu->memory->oam[address & 0xFF] = data;
+						mmu->memory.oam[address & 0xFF] = data;
 						return;
 					}
 
 				case 0x0F00:
 					if (address < 0xFF80) {
-						mmu->memory->io[address & 0x7F] = data;
-						return;
-					} else if (address < 0xFFFF) {
-						mmu->memory->hram[address & 0x7F] = data;
+						mmu->memory.io[address & 0x7F] = data;
 						return;
 					}
-					mmu->memory->ie = data;
+					if (address < 0xFFFF) {
+						mmu->memory.hram[address & 0x7F] = data;
+						return;
+					}
+					mmu->memory.ie = data;
 					return;
 
 				default:

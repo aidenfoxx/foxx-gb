@@ -2,6 +2,7 @@
 #define CPU_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "mmu.h"
 
@@ -19,13 +20,11 @@ typedef struct {
 typedef struct {
 	CPURegs regs;
 	unsigned cycles;
-	int cb;
-	int ei; int ime;
-	int halt; int stop; // TODO: What types should the flags be?
+	bool cb;
+	bool ei; bool ime;
+	bool halt; bool stop;
 } CPU;
 
-void cpuInit(CPU*);
-void cpuFree(CPU*);
 int cpuGetFlag(CPU*, int);
 void cpuSetFlag(CPU*, int, int);
 void cpuStep(CPU*, MMU*);

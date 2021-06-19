@@ -21,6 +21,8 @@ void inputStep(Joypad *joypad, MMU *mmu)
 
 void inputTrigger(Joypad *joypad, MMU *mmu, int button)
 {
+	/* cpu->stop = false; */
+
 	switch (button) {
 		case BUTTON_UP:
 			joypad->directions &= 0xFB;
