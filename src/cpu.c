@@ -1,6 +1,20 @@
 #include "cpu.h"
 #include "opcode.h"
 
+void cpuInit(CPU *cpu)
+{
+	cpu->regs.a = 0x1;
+	cpu->regs.f = 0xB0;
+	cpu->regs.b = 0x0;
+	cpu->regs.c = 0x13;
+	cpu->regs.d = 0x0;
+	cpu->regs.e = 0xD8;
+	cpu->regs.h = 0x1;
+	cpu->regs.l = 0x4D;
+	cpu->regs.sp = 0xFFFe;
+	cpu->regs.pc = 0x100;
+}
+
 int cpuGetFlag(CPU *cpu, int flag)
 {
 	switch (flag) {
@@ -47,10 +61,6 @@ void cpuStep(CPU *cpu, MMU *mmu)
 	uint8_t cycles = 0;
 	uint8_t intEnabled = mmuReadByte(mmu, 0xFFFF);
 	uint8_t intFlag = mmuReadByte(mmu, 0xFF0F);
-
-	if (cpu->regs.pc == 0x100) {
-		mmu->bios = 0;
-	}
 
 	if (cpu->ime && intEnabled && intFlag) {
 		uint8_t interrupt = intEnabled & intFlag;

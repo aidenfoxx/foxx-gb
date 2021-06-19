@@ -58,9 +58,7 @@ void inputTrigger(Joypad *joypad, MMU *mmu, int button)
 	/**
 	 * Set joypad interrupt flag
 	 */
-	printf("PRE-READ BYTE");
 	if (mmuReadByte(mmu, 0xFFFF) & 0x10) {
-		printf("READ BYTE");
 		mmuWriteByte(mmu, 0xFF0F, mmuReadByte(mmu, 0xFF0F) | 0x10);
 	}
 }

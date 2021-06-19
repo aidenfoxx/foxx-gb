@@ -25,6 +25,7 @@ typedef struct {
 	bool halt; bool stop;
 } CPU;
 
+void cpuInit(CPU*);
 int cpuGetFlag(CPU*, int);
 void cpuSetFlag(CPU*, int, int);
 void cpuStep(CPU*, MMU*);

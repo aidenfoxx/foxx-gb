@@ -2,6 +2,7 @@
 
 void gameboyInit(Gameboy *gameboy, Cartridge *cartridge)
 {
+	cpuInit(&gameboy->cpu);
 	mmuInit(&gameboy->mmu, cartridge);
 	inputInit(&gameboy->joypad);
 }
