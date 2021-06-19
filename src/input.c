@@ -11,11 +11,11 @@ void inputStep(Joypad *joypad, MMU *mmu)
 	uint8_t input = mmuReadByte(mmu, 0xFF00);
 
 	if (!(input & 0x10)) {
-		mmuWriteByte(mmu, 0xFF00, input & (0xF0 + joypad->directions) & 0x0F);
+		mmuWriteByte(mmu, 0xFF00, (input & 0xF0) + (joypad->directions & 0x0F));
 	}
 
 	if (!(input & 0x20)) {
-		mmuWriteByte(mmu, 0xFF00, input & (0xF0 + joypad->buttons) & 0x0F);
+		mmuWriteByte(mmu, 0xFF00, (input & 0xF0) + (joypad->buttons & 0x0F));
 	}
 }
 

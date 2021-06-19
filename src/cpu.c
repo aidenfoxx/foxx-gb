@@ -13,8 +13,7 @@ void cpuFree(CPU *cpu)
 
 int cpuGetFlag(CPU *cpu, int flag)
 {
-	switch (flag)
-	{
+	switch (flag) {
 		case FLAG_Z:
 			return cpu->regs.f >> 7;
 
