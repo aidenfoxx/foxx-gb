@@ -1,6 +1,6 @@
 #include "cartridge.h"
 
-int cartridgeInit(Cartridge *cartridge, char path[])
+int cartridgeInit(Cartridge *cartridge, const char *path)
 {
 	FILE *file = fopen(path, "rb");
 
@@ -16,7 +16,7 @@ int cartridgeInit(Cartridge *cartridge, char path[])
 
 	if (length != fread(buffer, sizeof(char), length, file)) {
 		free(buffer);
-		return -2;
+		return -1;
 	}
 
 	fclose(file);
@@ -30,5 +30,5 @@ int cartridgeInit(Cartridge *cartridge, char path[])
 	}
 
 	free(buffer);
-	return 1;
+	return 0;
 }

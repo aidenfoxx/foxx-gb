@@ -147,34 +147,18 @@ void handleInput(GLFWwindow* window, int key, int scancode, int action, int mods
 
 int main(int argc, const char* argv[])
 {
-	int error;
-	char gamePath[256];
-
 	/**
 	 * Load the gameboy cartridge
 	 */
 	if (argc < 2) {
 		printf("ERROR: Cartridge path not provided.\n");
-		getchar();
 		return -1;
 	}
-
-	strncpy(gamePath, argv[1], sizeof(gamePath) - 1);
-	gamePath[sizeof(gamePath) - 1] = '\0';
 
 	printf("EVENT: Loading cartridge...\n");
 
-	error = cartridgeInit(&cartridge, gamePath);
-
-	if (error == -1) {
-		printf("ERROR: Could not find cartridge file.\n");
-		getchar();
-		return -1;
-	}
-	
-	if (error == -2) {
-		printf("ERROR: Could not read cartridge file.\n");
-		getchar();
+	if (cartridgeInit(&cartridge, argv[1])) {
+		printf("ERROR: Failed to read rom file.\n");
 		return -1;
 	}
 
@@ -190,7 +174,6 @@ int main(int argc, const char* argv[])
 	 */
 	if (!glfwInit()) {
 		printf("ERROR: Failed to initialize GLFW.\n");
-		getchar();
 		return -1;
 	}
 
@@ -199,7 +182,6 @@ int main(int argc, const char* argv[])
 	if (!window) {
 		printf("ERROR: Failed to create application window.\n");
 		glfwTerminate();
-		getchar();
 		return -1;
 	}
 
@@ -209,9 +191,9 @@ int main(int argc, const char* argv[])
 	/**
 	 * Bind various callbacks
 	 */
+	glfwSetKeyCallback(window, handleInput);
 	displaySetRenderCallback(&gameboy.display, renderFunction);
 	displaySetDrawCallback(&gameboy.display, drawFunction);
-	glfwSetKeyCallback(window, handleInput);
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();

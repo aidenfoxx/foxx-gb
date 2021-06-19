@@ -18,6 +18,6 @@ typedef struct {
     uint16_t name;
 } Cartridge;
 
-int cartridgeInit(Cartridge*, char[]);
+int cartridgeInit(Cartridge*, const char*);
 
 #endif
