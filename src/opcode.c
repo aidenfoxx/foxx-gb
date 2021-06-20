@@ -57,8 +57,8 @@ inline static uint8_t INC_B(CPU *cpu, uint8_t op) {
 
   return op;
 }
-inline static uint16_t INC_W(uint16_t a) {
-	return ++a;
+inline static uint16_t INC_W(uint16_t op) {
+	return ++op;
 }
 inline static uint8_t DEC_B(CPU *cpu, uint8_t op) {
 	cpuSetFlag(cpu, FLAG_Z, !(--op));
@@ -67,8 +67,8 @@ inline static uint8_t DEC_B(CPU *cpu, uint8_t op) {
 
 	return op;
 }
-inline static uint16_t DEC_W(uint16_t a) {
-	return --a;
+inline static uint16_t DEC_W(uint16_t op) {
+	return --op;
 }
 
 /**
@@ -87,8 +87,16 @@ inline static uint8_t XOR(CPU *cpu, uint8_t a, uint8_t b) {
 /**
  * Stack Operations
  */
-inline static void PUSH(MMU *mmu, uint16_t *sp, uint16_t a) { *sp -= 2; mmuWriteWord(mmu, *sp, a); }
-inline static uint16_t POP(MMU *mmu, uint16_t *sp) { uint16_t a = mmuReadWord(mmu, *sp); *sp += 2; return a; }
+inline static void PUSH(CPU *cpu, MMU *mmu, uint16_t val) {
+	cpu->regs.sp -= 2;
+	mmuWriteWord(mmu, cpu->regs.sp, val);
+}
+inline static uint16_t POP(CPU *cpu, MMU *mmu) {
+	uint16_t val = mmuReadWord(mmu, cpu->regs.sp);
+	cpu->regs.sp += 2;
+
+	return val;
+}
 
 /**
  * Other Operations
@@ -899,11 +907,11 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0xC0: /* RET NZ */
-      if (!cpuGetFlag(cpu, FLAG_Z)) { cpu->regs.pc = POP(mmu, &cpu->regs.sp); return 20; }
+      if (!cpuGetFlag(cpu, FLAG_Z)) { cpu->regs.pc = POP(cpu, mmu); return 20; }
       return 10;
 
     case 0xC1: /* POP BC */
-      word = POP(mmu, &cpu->regs.sp); cpu->regs.b = word >> 8; cpu->regs.c = word & 0xFF;
+      word = POP(cpu, mmu); cpu->regs.b = word >> 8; cpu->regs.c = word & 0xFF;
       return 12;
 
     case 0xC2: /* JP NZ,a16 */
@@ -915,11 +923,11 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 16;
 
     case 0xC4: /* CALL NZ,a16 */
-      if (!cpuGetFlag(cpu, FLAG_Z)) { PUSH(mmu, &cpu->regs.sp, cpu->regs.pc + 0x2); cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc); return 0x18; } cpu->regs.pc += 2;
+      if (!cpuGetFlag(cpu, FLAG_Z)) { PUSH(cpu, mmu, cpu->regs.pc + 0x2); cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc); return 0x18; } cpu->regs.pc += 2;
       return 12;
 
     case 0xC5: /* PUSH BC */
-      PUSH(mmu, &cpu->regs.sp, (cpu->regs.b << 8) + cpu->regs.c);
+      PUSH(cpu, mmu, (cpu->regs.b << 8) + cpu->regs.c);
       return 16;
 
     case 0xC6: /* ADD A,d8 */
@@ -927,15 +935,15 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xC7: /* RST 00H */
-      PUSH(mmu, &cpu->regs.sp, cpu->regs.pc); cpu->regs.pc = 0;
+      PUSH(cpu, mmu, cpu->regs.pc); cpu->regs.pc = 0;
       return 16;
 
     case 0xC8: /* RET Z */
-      if (cpuGetFlag(cpu, FLAG_Z)) { cpu->regs.pc = POP(mmu, &cpu->regs.sp); return 20; }
+      if (cpuGetFlag(cpu, FLAG_Z)) { cpu->regs.pc = POP(cpu, mmu); return 20; }
       return 10;
 
     case 0xC9: /* RET */
-      cpu->regs.pc = POP(mmu, &cpu->regs.sp);
+      cpu->regs.pc = POP(cpu, mmu);
       return 16;
 
     case 0xCA: /* JP Z,a16 */
@@ -947,11 +955,11 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0xCC: /* CALL Z,a16 */
-      if (cpuGetFlag(cpu, FLAG_Z)) { PUSH(mmu, &cpu->regs.sp, cpu->regs.pc + 0x2); cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc); return 0x18; } cpu->regs.pc += 2;
+      if (cpuGetFlag(cpu, FLAG_Z)) { PUSH(cpu, mmu, cpu->regs.pc + 0x2); cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc); return 0x18; } cpu->regs.pc += 2;
       return 12;
 
     case 0xCD: /* CALL a16 */
-      PUSH(mmu, &cpu->regs.sp, cpu->regs.pc + 0x2); cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc);
+      PUSH(cpu, mmu, cpu->regs.pc + 0x2); cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc);
       return 0x18;
 
     case 0xCE: /* ADC A,d8 */
@@ -959,15 +967,15 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xCF: /* RST 08H */
-      PUSH(mmu, &cpu->regs.sp, cpu->regs.pc); cpu->regs.pc = 10;
+      PUSH(cpu, mmu, cpu->regs.pc); cpu->regs.pc = 10;
       return 16;
 
     case 0xD0: /* RET NC */
-      if (!cpuGetFlag(cpu, FLAG_C)) { cpu->regs.pc = POP(mmu, &cpu->regs.sp); return 0x20; }
+      if (!cpuGetFlag(cpu, FLAG_C)) { cpu->regs.pc = POP(cpu, mmu); return 0x20; }
       return 10;
 
     case 0xD1: /* POP DE */
-      word = POP(mmu, &cpu->regs.sp); cpu->regs.d = word >> 8; cpu->regs.e = word & 0xFF;
+      word = POP(cpu, mmu); cpu->regs.d = word >> 8; cpu->regs.e = word & 0xFF;
       return 12;
 
     case 0xD2: /* JP NC,a16 */
@@ -975,11 +983,11 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 12;
 
     case 0xD4: /* CALL NC,a16 */
-      if (!cpuGetFlag(cpu, FLAG_C)) { PUSH(mmu, &cpu->regs.sp, cpu->regs.pc + 0x2); cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc); return 0x18; } cpu->regs.pc += 2;
+      if (!cpuGetFlag(cpu, FLAG_C)) { PUSH(cpu, mmu, cpu->regs.pc + 0x2); cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc); return 0x18; } cpu->regs.pc += 2;
       return 12;
 
     case 0xD5: /* PUSH DE */
-      PUSH(mmu, &cpu->regs.sp, (cpu->regs.d << 8) + cpu->regs.e);
+      PUSH(cpu, mmu, (cpu->regs.d << 8) + cpu->regs.e);
       return 16;
 
     case 0xD6: /* SUB A,d8 */
@@ -987,15 +995,15 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xD7: /* RST 10H */
-      PUSH(mmu, &cpu->regs.sp, cpu->regs.pc); cpu->regs.pc = 16;
+      PUSH(cpu, mmu, cpu->regs.pc); cpu->regs.pc = 16;
       return 16;
 
     case 0xD8: /* RET C */
-      if (cpuGetFlag(cpu, FLAG_C)) { cpu->regs.pc = POP(mmu, &cpu->regs.sp); return 20; }
+      if (cpuGetFlag(cpu, FLAG_C)) { cpu->regs.pc = POP(cpu, mmu); return 20; }
       return 10;
 
     case 0xD9: /* RETI */
-      cpu->regs.pc = POP(mmu, &cpu->regs.sp); cpu->ime = true;
+      cpu->regs.pc = POP(cpu, mmu); cpu->ime = true;
       return 16;
 
     case 0xDA: /* JP C,a16 */
@@ -1003,7 +1011,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 12;
 
     case 0xDC: /* CALL C,a16 */
-      if (cpuGetFlag(cpu, FLAG_C)) { PUSH(mmu, &cpu->regs.sp, cpu->regs.pc + 0x2); cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc); return 0x18; } cpu->regs.pc += 2;
+      if (cpuGetFlag(cpu, FLAG_C)) { PUSH(cpu, mmu, cpu->regs.pc + 0x2); cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc); return 0x18; } cpu->regs.pc += 2;
       return 12;
 
     case 0xDE: /* SBC A,d8 */
@@ -1011,7 +1019,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xDF: /* RST 18H */
-      PUSH(mmu, &cpu->regs.sp, cpu->regs.pc); cpu->regs.pc = 0x18;
+      PUSH(cpu, mmu, cpu->regs.pc); cpu->regs.pc = 0x18;
       return 16;
 
     case 0xE0: /* LDH (a8),A */
@@ -1019,7 +1027,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 12;
 
     case 0xE1: /* POP HL */
-      word = POP(mmu, &cpu->regs.sp); cpu->regs.h = word >> 8; cpu->regs.l = word & 0xFF;
+      word = POP(cpu, mmu); cpu->regs.h = word >> 8; cpu->regs.l = word & 0xFF;
       return 12;
 
     case 0xE2: /* LD (C),A */
@@ -1027,7 +1035,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xE5: /* PUSH HL */
-      PUSH(mmu, &cpu->regs.sp, (cpu->regs.h << 8) + cpu->regs.l);
+      PUSH(cpu, mmu, (cpu->regs.h << 8) + cpu->regs.l);
       return 16;
 
     case 0xE6: /* AND d8 */
@@ -1035,7 +1043,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xE7: /* RST 20H */
-      PUSH(mmu, &cpu->regs.sp, cpu->regs.pc); cpu->regs.pc = 0x20;
+      PUSH(cpu, mmu, cpu->regs.pc); cpu->regs.pc = 0x20;
       return 16;
 
     case 0xE8: /* ADD SP,r8 */
@@ -1066,7 +1074,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xEF: /* RST 28H */
-      PUSH(mmu, &cpu->regs.sp, cpu->regs.pc); cpu->regs.pc = 0x28;
+      PUSH(cpu, mmu, cpu->regs.pc); cpu->regs.pc = 0x28;
       return 16;
 
     case 0xF0: /* LDH A,(a8) */
@@ -1074,7 +1082,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 12;
 
     case 0xF1: /* POP AF */
-      word = POP(mmu, &cpu->regs.sp); cpu->regs.a = word >> 8; cpu->regs.f = word & 0xF0;
+      word = POP(cpu, mmu); cpu->regs.a = word >> 8; cpu->regs.f = word & 0xF0;
       return 12;
 
     case 0xF2: /* LD A,(C) */
@@ -1086,7 +1094,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0xF5: /* PUSH AF */
-      PUSH(mmu, &cpu->regs.sp, (cpu->regs.a << 8) + cpu->regs.f);
+      PUSH(cpu, mmu, (cpu->regs.a << 8) + cpu->regs.f);
       return 16;
 
     case 0xF6: /* OR d8 */
@@ -1094,7 +1102,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xF7: /* RST 30H */
-      PUSH(mmu, &cpu->regs.sp, cpu->regs.pc); cpu->regs.pc = 0x30;
+      PUSH(cpu, mmu, cpu->regs.pc); cpu->regs.pc = 0x30;
       return 16;
 
     case 0xF8: /* LD HL,SP+r8 */
@@ -1131,7 +1139,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xFF: /* RST 38H */
-      PUSH(mmu, &cpu->regs.sp, cpu->regs.pc); cpu->regs.pc = 0x38;
+      PUSH(cpu, mmu, cpu->regs.pc); cpu->regs.pc = 0x38;
       return 16;
   }
 
