@@ -133,7 +133,7 @@ void displayScanline(Display *display, MMU *mmu)
 	 */
 	if (lcdc & 0x2) {
 		uint16_t oamAddress = 0xFE00;
-		uint8_t spriteHeight = lcdc & 0x4 ? 0x10 : 0x8;
+		uint8_t spriteHeight = lcdc & 0x4 ? 16 : 8;
 
 		/**
 		 * Scan backwards for priority
@@ -143,11 +143,11 @@ void displayScanline(Display *display, MMU *mmu)
 			 * 4 Bytes per OAM record
 			 */
 			uint8_t spriteOffset = i * 4;
-			uint8_t spriteAddress = mmuReadByte(mmu, oamAddress + spriteOffset + 0x2);
-			uint8_t spriteData = mmuReadByte(mmu, oamAddress + spriteOffset +0x3);
+			uint8_t spriteAddress = mmuReadByte(mmu, oamAddress + spriteOffset + 2);
+			uint8_t spriteData = mmuReadByte(mmu, oamAddress + spriteOffset + 3);
 
-			uint8_t posX = mmuReadByte(mmu, oamAddress + spriteOffset + 0x1) - 0x8;
-			uint8_t posY = mmuReadByte(mmu, oamAddress + spriteOffset) - 0x10;
+			uint8_t posX = mmuReadByte(mmu, oamAddress + spriteOffset + 1) - 8;
+			uint8_t posY = mmuReadByte(mmu, oamAddress + spriteOffset) - 16;
 
 			// TODO: Early return.
 			if (display->scanline >= posY && display->scanline < (posY + spriteHeight)) {
@@ -160,7 +160,7 @@ void displayScanline(Display *display, MMU *mmu)
 				uint16_t spriteLine = mmuReadWord(mmu, 0x8000 + (spriteAddress * 16) + (spriteY * 2));
 
 				for (int x = 0; x < 8; x++) {
-					uint8_t pixelIndex = spriteData & 0x20 ? 0x01 << x : 0x01 << (7 - x); /* Flip X */
+					uint8_t pixelIndex = spriteData & 0x20 ? 1 << x : 1 << (7 - x); /* Flip X */
 					int pixelColor = displayGetColor(spriteLine, pixelIndex);
 
 					if (posX + x > 0 && posX + x < 160 && pixelColor > 0) {

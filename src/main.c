@@ -28,6 +28,8 @@ void renderFunction(int x, int y, int color)
 
 void drawFunction()
 {
+	glfwPollEvents();
+
 	int width;
 	int height;
 	glfwGetFramebufferSize(window, &width, &height);
@@ -41,7 +43,7 @@ void drawFunction()
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glOrtho(0, width, height, 0, 0, 1);
-	
+
 	/**
 	 * Generate texture from framebuffer.
 	 */
@@ -60,10 +62,10 @@ void drawFunction()
 	glBindTexture(GL_TEXTURE_2D, texture);
 	glBegin(GL_QUADS);
 
-	glTexCoord2f(0, 0); glVertex2f(0, 0); 
-	glTexCoord2f(1, 0); glVertex2f(width, 0); 
-	glTexCoord2f(1, 1); glVertex2f(width, height); 
-	glTexCoord2f(0, 1); glVertex2f(0, height); 
+	glTexCoord2f(0, 0); glVertex2f(0, 0);
+	glTexCoord2f(1, 0); glVertex2f(width, 0);
+	glTexCoord2f(1, 1); glVertex2f(width, height);
+	glTexCoord2f(0, 1); glVertex2f(0, height);
 
 	glEnd();
 	glDisable(GL_TEXTURE_2D);
@@ -72,7 +74,7 @@ void drawFunction()
 	glfwSwapBuffers(window);
 }
 
-void handleInput(GLFWwindow* window, int key, int scancode, int action, int mods)
+void handleInput(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
 	switch (key) {
 		case GLFW_KEY_ESCAPE:
@@ -186,7 +188,6 @@ int main(int argc, const char* argv[])
 	}
 
 	glfwMakeContextCurrent(window);
-	glfwSwapInterval(1);
 
 	/**
 	 * Bind various callbacks
@@ -196,7 +197,6 @@ int main(int argc, const char* argv[])
 	displaySetDrawCallback(&gameboy.display, drawFunction);
 
 	while (!glfwWindowShouldClose(window)) {
-		glfwPollEvents();
 		gameboyStep(&gameboy);
 	}
 
