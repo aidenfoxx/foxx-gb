@@ -106,8 +106,8 @@ void displayScanline(Display *display, MMU *mmu)
 		uint16_t mapAddress = lcdc & 0x8 ? 0x9C00 : 0x9800;
 		uint16_t dataAddress = lcdc & 0x10 ? 0x8000 : 0x8800;
 
-		uint8_t scrollX = mmuReadByte(mmu, 0xFF43); // 0xFF43 = Scroll position X
-		uint8_t scrollY = mmuReadByte(mmu, 0xFF42); // 0xFF42 = Scroll position Y
+		uint8_t scrollX = mmuReadByte(mmu, 0xFF43); /* 0xFF43 = Scroll position X */
+		uint8_t scrollY = mmuReadByte(mmu, 0xFF42); /* 0xFF42 = Scroll position Y */
 
 		uint8_t tileY = scrollY + display->scanline;
 		uint8_t tileRow = tileY % 8;
@@ -116,7 +116,7 @@ void displayScanline(Display *display, MMU *mmu)
 			uint8_t tileX = scrollX + x;
 			uint8_t tileColumn = tileX % 8;
 			uint8_t tileIndex = mmuReadByte(mmu, mapAddress + (tileX / 8) + (tileY / 8) * 32);
-			tileIndex += dataAddress == 0x8800 ? 128 : 0; // Set signed addressing
+			tileIndex += dataAddress == 0x8800 ? 128 : 0; /* Set signed addressing */
 
 			/**
 			 * 16 Bytes in a tile

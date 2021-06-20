@@ -3,6 +3,9 @@
 
 void cpuInit(CPU *cpu)
 {
+	/**
+	 * Initial post BIOS state
+	 */
 	cpu->regs.a = 0x1;
 	cpu->regs.f = 0xB0;
 	cpu->regs.b = 0x0;
