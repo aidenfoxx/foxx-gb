@@ -14,20 +14,22 @@ int cartridgeInit(Cartridge *cartridge, const char *path)
 
 	uint8_t *buffer = malloc(length);
 
-	if (length != fread(buffer, sizeof(char), length, file)) {
+	if (length != fread(buffer, sizeof(uint8_t), length, file)) {
 		free(buffer);
 		return -1;
 	}
 
 	fclose(file);
 
-	memcpy(cartridge->rom0, buffer + CART_ROM0_OFFSET, sizeof(cartridge->rom0));
-	memcpy(&cartridge->id, buffer + CART_ID_OFFSET, sizeof(cartridge->id));
-	memcpy(&cartridge->name, buffer + CART_NAME_OFFSET, sizeof(cartridge->name));
-
-	if (length > 32767) {
-		memcpy(cartridge->rom1, buffer + CART_ROM1_OFFSET, sizeof(cartridge->rom1));
+	if (length != 0x8000) {
+		free(buffer);
+		printf("WARN: Cartridge unsupported.");
+		return -1;
 	}
+
+	memcpy(cartridge->rom, buffer, 0x8000);
+	memcpy(&cartridge->id, buffer + 0x147, sizeof(uint8_t));
+	memcpy(&cartridge->name, buffer + 0x134, sizeof(uint16_t));
 
 	free(buffer);
 	return 0;
