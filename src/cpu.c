@@ -4,16 +4,12 @@
 void cpuInit(CPU *cpu)
 {
 	/**
-	 * Initial post BIOS state
+	 * Initial CPU state
 	 */
-	cpu->regs.a = 0x1;
-	cpu->regs.f = 0xB0;
-	cpu->regs.b = 0x0;
-	cpu->regs.c = 0x13;
-	cpu->regs.d = 0x0;
-	cpu->regs.e = 0xD8;
-	cpu->regs.h = 0x1;
-	cpu->regs.l = 0x4D;
+	cpu->regs.a = 0x1; cpu->regs.f = 0xB0;
+	cpu->regs.b = 0x0; cpu->regs.c = 0x13;
+	cpu->regs.d = 0x0; cpu->regs.e = 0xD8;
+	cpu->regs.h = 0x1; cpu->regs.l = 0x4D;
 	cpu->regs.sp = 0xFFFe;
 	cpu->regs.pc = 0x100;
 }
@@ -62,18 +58,18 @@ void cpuSetFlag(CPU *cpu, int flag, int value)
 void cpuStep(CPU *cpu, MMU *mmu)
 {
 	uint8_t cycles = 0;
-	uint8_t intEnabled = mmuReadByte(mmu, 0xFFFF);
-	uint8_t intFlag = mmuReadByte(mmu, 0xFF0F);
+	uint8_t intrEnabled = mmuReadByte(mmu, 0xFFFF);
+	uint8_t intrFlag = mmuReadByte(mmu, 0xFF0F);
 
-	if (cpu->ime && intEnabled && intFlag) {
-		uint8_t interrupt = intEnabled & intFlag;
+	if (cpu->ime && intrEnabled && intrFlag) {
+		uint8_t interrupt = intrEnabled & intrFlag;
 
 		if (interrupt) {
 			cpu->ime = false;
 			cpu->halt = false;
 
 			if (interrupt & 0x01) { /* Vblank */
-				mmuWriteByte(mmu, 0xFF0F, intFlag & 0xFE);
+				mmuWriteByte(mmu, 0xFF0F, intrFlag & 0xFE);
 				cpu->regs.sp -= 2;
 				mmuWriteWord(mmu, cpu->regs.sp, cpu->regs.pc);
 				cpu->regs.pc = 0x40;
@@ -81,7 +77,7 @@ void cpuStep(CPU *cpu, MMU *mmu)
 			}
 
 			if (interrupt & 0x02) { /* Stat */
-				mmuWriteByte(mmu, 0xFF0F, intFlag & 0xFD);
+				mmuWriteByte(mmu, 0xFF0F, intrFlag & 0xFD);
 				cpu->regs.sp -= 2;
 				mmuWriteWord(mmu, cpu->regs.sp, cpu->regs.pc);
 				cpu->regs.pc = 0x48;
@@ -89,7 +85,7 @@ void cpuStep(CPU *cpu, MMU *mmu)
 			}
 
 			if (interrupt & 0x04) { /* Timer */
-				mmuWriteByte(mmu, 0xFF0F, intFlag & 0xFB);
+				mmuWriteByte(mmu, 0xFF0F, intrFlag & 0xFB);
 				cpu->regs.sp -= 2;
 				mmuWriteWord(mmu, cpu->regs.sp, cpu->regs.pc);
 				cpu->regs.pc = 0x50;
@@ -97,7 +93,7 @@ void cpuStep(CPU *cpu, MMU *mmu)
 			}
 
 			if (interrupt & 0x08) { /* Serial */
-				mmuWriteByte(mmu, 0xFF0F, intFlag & 0xF7);
+				mmuWriteByte(mmu, 0xFF0F, intrFlag & 0xF7);
 				cpu->regs.sp -= 2;
 				mmuWriteWord(mmu, cpu->regs.sp, cpu->regs.pc);
 				cpu->regs.pc = 0x58;
@@ -105,7 +101,7 @@ void cpuStep(CPU *cpu, MMU *mmu)
 			}
 
 			if (interrupt & 0x10) { /* Joypad */
-				mmuWriteByte(mmu, 0xFF0F, intFlag & 0xEF);
+				mmuWriteByte(mmu, 0xFF0F, intrFlag & 0xEF);
 				cpu->regs.sp -= 2;
 				mmuWriteWord(mmu, cpu->regs.sp, cpu->regs.pc);
 				cpu->regs.pc = 0x60;

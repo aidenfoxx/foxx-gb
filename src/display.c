@@ -1,6 +1,8 @@
 #include "display.h"
 
-static void displayScanline(Display*, MMU*);
+static void displayWriteLy(Display*, MMU*);
+static void displayWriteMode(Display*, MMU*);
+static void displayRender(Display*, MMU*);
 static int displayGetColor(uint16_t, uint8_t);
 
 void displaySetRenderCallback(Display *display, RenderCallback callback)
@@ -13,7 +15,6 @@ void displaySetDrawCallback(Display *display, DrawCallback callback)
 	display->draw = callback;
 }
 
-// TODO: Verify this logic.
 void displayStep(Display *display, MMU *mmu, uint8_t cycles)
 {
 	display->cycles += cycles;
@@ -21,7 +22,25 @@ void displayStep(Display *display, MMU *mmu, uint8_t cycles)
 	switch (display->mode) {
 		case DISPLAY_HBLANK:
 			if (display->cycles >= 204) {
-				if (display->scanline == 143) {
+				display->cycles -= 204;
+				display->mode = DISPLAY_OAM;
+				display->scanline++;
+
+				/**
+				 * Handle DMA request
+				 */
+				uint8_t dma = mmuReadByte(mmu, 0xff46);
+
+				if (dma) {
+					for (int i = 0; i < 160; i++) {
+						mmuWriteByte(mmu, 0xFE00 + i, mmuReadByte(mmu, (dma * 256) + i));
+					}
+					mmuWriteByte(mmu, 0xff46, 0);
+				}
+
+				if (display->scanline == 144) {
+					display->mode = DISPLAY_VBLANK;
+
 					/**
 					 * Set vblank interrupt flag
 					 */
@@ -29,75 +48,92 @@ void displayStep(Display *display, MMU *mmu, uint8_t cycles)
 						mmuWriteByte(mmu, 0xFF0F, mmuReadByte(mmu, 0xFF0F) | 0x1);
 					}
 
-					/**
-					 * Handle OAM DMA copy request
-					 */
-					uint8_t dma = mmuReadByte(mmu, 0xff46);
-
-					if (dma) {
-						for (int i = 0; i < 160; i++) {
-							mmuWriteByte(mmu, 0xFE00 + i, mmuReadByte(mmu, (dma * 256) + i));
-						}
-						mmuWriteByte(mmu, 0xff46, 0);
-					}
-
 					if (display->draw) {
 						display->draw();
 					}
-
-					display->mode = DISPLAY_VBLANK;
-				} else {
-					display->mode = DISPLAY_OAM;
 				}
 
-				/**
-				 *  Write current line to IO
-				 */
-				mmuWriteByte(mmu, 0xFF44, ++display->scanline);
-				display->cycles -= 204;
+				displayWriteLy(display, mmu);
+				displayWriteMode(display, mmu);
 			}
 			break;
 
 		case DISPLAY_VBLANK:
 			if (display->cycles >= 456) {
+				display->cycles -= 456;
 				display->scanline++;
 
-				if (display->scanline == 153) {
+				if (display->scanline == 154) {
 					display->mode = DISPLAY_OAM;
 					display->scanline = 0;
+
+					displayWriteMode(display, mmu);
 				}
 
-				/**
-				 *  Write current line to IO
-				 */
-				mmuWriteByte(mmu, 0xFF44, display->scanline);
-				display->cycles -= 456;
+				displayWriteLy(display, mmu);
 			}
 			break;
 
 		case DISPLAY_OAM:
 			if (display->cycles >= 80) {
-				display->mode = DISPLAY_VRAM;
 				display->cycles -= 80;
+				display->mode = DISPLAY_VRAM;
 			}
 			break;
 
 		case DISPLAY_VRAM:
 			if (display->cycles >= 172) {
+				display->cycles -= 172;
+				display->mode = DISPLAY_HBLANK;
+
 				if (display->render) {
-					displayScanline(display, mmu);
+					displayRender(display, mmu);
 				}
 
-				display->mode = DISPLAY_HBLANK;
-				display->cycles -= 172;
+				displayWriteMode(display, mmu);
 			}
 			break;
 	}
 }
 
-void displayScanline(Display *display, MMU *mmu)
+/* https://github.com/drhelius/Gearboy/blob/master/src/Video.cpp https://gbdev.io/pandocs/STAT.html */
+void displayWriteLy(Display *display, MMU *mmu)
+{
+	uint8_t lycFlag = display->scanline == mmuReadByte(mmu, 0xFF45);
+
+	/**
+	* Set stat interrupt flag
+	*/
+	if (lycFlag && mmuReadByte(mmu, 0xFF41) & 0x40 && mmuReadByte(mmu, 0xFFFF) & 0x2) {
+		mmuWriteByte(mmu, 0xFF0F, mmuReadByte(mmu, 0xFF0F) | 0x2);
+	}
+
+	mmuWriteByte(mmu, 0xFF44, display->scanline); /* LY */
+	mmuWriteByte(mmu, 0xFF41, (mmuReadByte(mmu, 0xFF41) & 0xFB) | (lycFlag << 2)); /* STAT */
+}
+
+void displayWriteMode(Display *display, MMU *mmu)
+{
+	/**
+	* Set stat interrupt flag
+	*/
+	if (mmuReadByte(mmu, 0xFF41) & (0x8 << display->mode) && mmuReadByte(mmu, 0xFFFF) & 0x2) {
+		mmuWriteByte(mmu, 0xFF0F, mmuReadByte(mmu, 0xFF0F) | 0x2);
+	}
+
+	mmuWriteByte(mmu, 0xFF41, (mmuReadByte(mmu, 0xFF41) & 0xFC) | display->mode); /* STAT */
+}
+
+void displayRender(Display *display, MMU *mmu)
 {
 	uint8_t lcdc = mmuReadByte(mmu, 0xFF40);
+
+	/**
+	 * Display disbled.
+	 */
+	if (!(lcdc & 0x80)) {
+		return;
+	}
 
 	/**
 	 * BG layer
@@ -135,9 +171,6 @@ void displayScanline(Display *display, MMU *mmu)
 		uint16_t oamAddress = 0xFE00;
 		uint8_t spriteHeight = lcdc & 0x4 ? 16 : 8;
 
-		/**
-		 * Scan backwards for priority
-		 */
 		for (int i = 0; i < 40; i++) {
 			/**
 			 * 4 Bytes per OAM record
@@ -154,8 +187,8 @@ void displayScanline(Display *display, MMU *mmu)
 				uint8_t spriteY = spriteData & 0x40 ? spriteHeight - (display->scanline - posY) : display->scanline - posY; /* Flip Y */
 
 				/**
-				 * 16 Bytes in a Sprite
-				 * 2 Bytes in a Sprite Line
+				 * 16 Bytes in a sprite
+				 * 2 Bytes in a line
 				 */
 				uint16_t spriteLine = mmuReadWord(mmu, 0x8000 + (spriteAddress * 16) + (spriteY * 2));
 
@@ -176,39 +209,28 @@ void displayScanline(Display *display, MMU *mmu)
 	 * TODO: This uses the same logic as BG.
 	 */
 	if (lcdc & 0x1 && lcdc & 0x20) {
-		uint16_t tilemapAddress = lcdc & 0x40 ? 0x9C00 : 0x9800;
-		uint16_t tiledataAddress = lcdc & 0x10 ? 0x8000 : 0x8800;
+		uint16_t mapAddress = lcdc & 0x40 ? 0x9C00 : 0x9800;
+		uint16_t dataAddress = lcdc & 0x10 ? 0x8000 : 0x8800;
 
-		uint8_t scrollX = mmuReadByte(mmu, 0xFF43);
-		uint8_t scrollY = mmuReadByte(mmu, 0xFF42);
+		uint8_t windowX = mmuReadByte(mmu, 0xFF4B); /* 0xFF4B = Window position X */
+		uint8_t windowY = mmuReadByte(mmu, 0xFF4A); /* 0xFF4A = Window position Y */
 
-		uint8_t mapOffsetX = scrollX / 8;
-		uint8_t mapOffsetY = (scrollY + display->scanline) / 8;
-
-		uint8_t tileX = scrollX % 8;
-		uint8_t tileY = (display->scanline + scrollY) % 8;
-
-		uint8_t tileAddress = 0x0;
-		uint16_t tileLine = 0;
+		uint8_t tileY = display->scanline - windowY;
+		uint8_t tileRow = tileY % 8;
 
 		for (int x = 0; x < 160; x++) {
-			if (!x || tileX == 8) {
-				if (x > 0) {
-					tileX = 0;
-					mapOffsetX++;
-				}
+			uint8_t tileX = x - windowX;
+			uint8_t tileColumn = tileX % 8;
+			uint8_t tileIndex = mmuReadByte(mmu, mapAddress + (tileX / 8) + (tileY / 8) * 32);
+			tileIndex += dataAddress == 0x8800 ? 128 : 0; /* Set signed addressing */
 
-				/**
-				 * 16 Bytes in a Tile
-				 * 2 Bytes in a Tile Line
-				 */
-				tileAddress = mmuReadByte(mmu, tilemapAddress + mapOffsetX + (mapOffsetY * 32));
-				tileAddress += tiledataAddress == 0x8800 ? 0x80 : 0x0; /* Signed check */
-				tileLine = mmuReadWord(mmu, tiledataAddress + (tileAddress * 16) + (tileY * 2));
-			}
+			/**
+			 * 16 Bytes in a tile
+			 * 2 Bytes in a line
+			 */
+			uint16_t tileLine = mmuReadWord(mmu, dataAddress + (tileIndex * 16) + (tileRow * 2));
 
-			display->render(x, display->scanline, displayGetColor(tileLine, 1 << (7 - tileX)));
-			tileX++;
+			display->render(x, display->scanline, displayGetColor(tileLine, 1 << (7 - tileColumn)));
 		}
 	}
 }
