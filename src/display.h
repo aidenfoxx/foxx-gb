@@ -16,15 +16,17 @@ typedef enum {
 } DisplayMode;
 
 typedef struct {
+	MMU *mmu;
 	RenderCallback render;
 	DrawCallback draw;
-	DisplayMode mode;
+	unsigned mode;
 	unsigned cycles;
 	unsigned scanline;
 } Display;
 
+void displayInit(Display*, MMU*);
 void displaySetRenderCallback(Display*, RenderCallback);
 void displaySetDrawCallback(Display*, DrawCallback);
-void displayStep(Display*, MMU*, uint8_t);
+void displayStep(Display*, unsigned);
 
 #endif

@@ -83,65 +83,65 @@ void handleInput(GLFWwindow *window, int key, int scancode, int action, int mods
 
 		case GLFW_KEY_UP:
 			if (action == GLFW_PRESS) {
-				inputTrigger(&gameboy.joypad, &gameboy.mmu, BUTTON_UP);
+				inputTrigger(&gameboy.input, BUTTON_UP);
 			} else if (action == GLFW_RELEASE) {
-				inputRelease(&gameboy.joypad, BUTTON_UP);
+				inputRelease(&gameboy.input, BUTTON_UP);
 			}
 			break;
 
 		case GLFW_KEY_DOWN:
 			if (action == GLFW_PRESS) {
-				inputTrigger(&gameboy.joypad, &gameboy.mmu, BUTTON_DOWN);
+				inputTrigger(&gameboy.input, BUTTON_DOWN);
 			} else if (action == GLFW_RELEASE) {
-				inputRelease(&gameboy.joypad, BUTTON_DOWN);
+				inputRelease(&gameboy.input, BUTTON_DOWN);
 			}
 			break;
 
 		case GLFW_KEY_LEFT:
 			if (action == GLFW_PRESS) {
-				inputTrigger(&gameboy.joypad, &gameboy.mmu, BUTTON_LEFT);
+				inputTrigger(&gameboy.input, BUTTON_LEFT);
 			} else if (action == GLFW_RELEASE) {
-				inputRelease(&gameboy.joypad, BUTTON_LEFT);
+				inputRelease(&gameboy.input, BUTTON_LEFT);
 			}
 			break;
 
 		case GLFW_KEY_RIGHT:
 			if (action == GLFW_PRESS) {
-				inputTrigger(&gameboy.joypad, &gameboy.mmu, BUTTON_RIGHT);
+				inputTrigger(&gameboy.input, BUTTON_RIGHT);
 			} else if (action == GLFW_RELEASE) {
-				inputRelease(&gameboy.joypad, BUTTON_RIGHT);
+				inputRelease(&gameboy.input, BUTTON_RIGHT);
 			}
 			break;
 
 		case GLFW_KEY_ENTER:
 			if (action == GLFW_PRESS) {
-				inputTrigger(&gameboy.joypad, &gameboy.mmu, BUTTON_START);
+				inputTrigger(&gameboy.input, BUTTON_START);
 			} else if (action == GLFW_RELEASE) {
-				inputRelease(&gameboy.joypad, BUTTON_START);
+				inputRelease(&gameboy.input, BUTTON_START);
 			}
 			break;
 
 		case GLFW_KEY_SPACE:
 			if (action == GLFW_PRESS) {
-				inputTrigger(&gameboy.joypad, &gameboy.mmu, BUTTON_SELECT);
+				inputTrigger(&gameboy.input, BUTTON_SELECT);
 			} else if (action == GLFW_RELEASE) {
-				inputRelease(&gameboy.joypad, BUTTON_SELECT);
+				inputRelease(&gameboy.input, BUTTON_SELECT);
 			}
 			break;
 
 		case GLFW_KEY_Z:
 			if (action == GLFW_PRESS) {
-				inputTrigger(&gameboy.joypad, &gameboy.mmu, BUTTON_B);
+				inputTrigger(&gameboy.input, BUTTON_B);
 			} else if (action == GLFW_RELEASE) {
-				inputRelease(&gameboy.joypad, BUTTON_B);
+				inputRelease(&gameboy.input, BUTTON_B);
 			}
 			break;
 
 		case GLFW_KEY_X:
 			if (action == GLFW_PRESS) {
-				inputTrigger(&gameboy.joypad, &gameboy.mmu, BUTTON_A);
+				inputTrigger(&gameboy.input, BUTTON_A);
 			} else if (action == GLFW_RELEASE) {
-				inputRelease(&gameboy.joypad, BUTTON_A);
+				inputRelease(&gameboy.input, BUTTON_A);
 			}
 			break;
 	}

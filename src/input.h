@@ -15,13 +15,14 @@
 #define BUTTON_A 7
 
 typedef struct {
+	MMU *mmu;
 	uint8_t directions;
 	uint8_t buttons; 
-} Joypad;
+} Input;
 
-void inputInit(Joypad*);
-void inputStep(Joypad*, MMU*);
-void inputTrigger(Joypad*, MMU*, int);
-void inputRelease(Joypad*, int);
+void inputInit(Input*, MMU*);
+void inputStep(Input*);
+void inputTrigger(Input*, unsigned);
+void inputRelease(Input*, unsigned);
 
 #endif

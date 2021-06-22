@@ -13,7 +13,7 @@ typedef struct {
 	MMU mmu;
 	Timer timer;
 	Display display;
-	Joypad joypad;
+	Input input;
 } Gameboy;
 
 void gameboyInit(Gameboy*, Cartridge*);

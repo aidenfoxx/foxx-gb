@@ -21,16 +21,16 @@ typedef struct {
 } CPURegs;
 
 typedef struct {
+	MMU *mmu;
 	CPURegs regs;
-	unsigned cycles;
 	bool cb;
 	bool ei; bool ime;
 	bool halt; bool stop;
 } CPU;
 
-void cpuInit(CPU*);
-int cpuGetFlag(CPU*, int);
-void cpuSetFlag(CPU*, int, int);
-void cpuStep(CPU*, MMU*);
+void cpuInit(CPU*, MMU*);
+unsigned cpuStep(CPU*);
+unsigned cpuGetFlag(CPU*, unsigned);
+void cpuSetFlag(CPU*, unsigned, unsigned);
 
 #endif

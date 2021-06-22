@@ -6,7 +6,7 @@
 #include "cpu.h"
 #include "mmu.h"
 
-uint8_t cpuOpcode(CPU*, MMU*, uint8_t);
-uint8_t cpuOpcodeCB(CPU*, MMU*, uint8_t);
+uint8_t cpuOpcode(CPU*, uint8_t);
+uint8_t cpuOpcodeCB(CPU*, uint8_t);
 
 #endif

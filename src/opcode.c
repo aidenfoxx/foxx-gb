@@ -87,12 +87,12 @@ inline static uint8_t XOR(CPU *cpu, uint8_t a, uint8_t b) {
 /**
  * Stack Operations
  */
-inline static void PUSH(CPU *cpu, MMU *mmu, uint16_t val) {
+inline static void PUSH(CPU *cpu, uint16_t val) {
 	cpu->regs.sp -= 2;
-	mmuWriteWord(mmu, cpu->regs.sp, val);
+	mmuWriteWord(cpu->mmu, cpu->regs.sp, val);
 }
-inline static uint16_t POP(CPU *cpu, MMU *mmu) {
-	uint16_t val = mmuReadWord(mmu, cpu->regs.sp);
+inline static uint16_t POP(CPU *cpu) {
+	uint16_t val = mmuReadWord(cpu->mmu, cpu->regs.sp);
 	cpu->regs.sp += 2;
 
 	return val;
@@ -114,26 +114,34 @@ inline static uint8_t SET(uint8_t a, uint8_t b) { return a | (1 << b); }
 inline static uint8_t RES(uint8_t a, uint8_t b) { return a & ~(1 << b); }
 inline static uint16_t JR(uint16_t pc, uint8_t a) { if ((a & 0x80) == 0x80) { a = ~(a - 0x1); return pc - a; } return pc + a; }
 
-uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
+uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 {
-  uint8_t byte;
-  uint16_t word;
+
 
   switch (opcode) {
     case 0: /* NOP */
       return 4;
 
     case 0x1: /* LD BC,d16 */
-      word = mmuReadWord(mmu, cpu->regs.pc); cpu->regs.b = word >> 8; cpu->regs.c = word & 0xFF; cpu->regs.pc += 2;
+    {
+      uint16_t val = mmuReadWord(cpu->mmu, cpu->regs.pc);
+      cpu->regs.b = val >> 8;
+      cpu->regs.c = val & 0xFF;
+      cpu->regs.pc += 2;
       return 12;
+    }
 
     case 0x2: /* LD (BC),A */
-      mmuWriteByte(mmu, (cpu->regs.b << 8) + cpu->regs.c, cpu->regs.a);
+      mmuWriteByte(cpu->mmu, (cpu->regs.b << 8) + cpu->regs.c, cpu->regs.a);
       return 10;
 
     case 0x3: /* INC BC */
-      word = INC_W((cpu->regs.b << 8) + cpu->regs.c); cpu->regs.b = word >> 8; cpu->regs.c = word & 0xFF;
+    {
+      uint16_t val = INC_W((cpu->regs.b << 8) + cpu->regs.c);
+      cpu->regs.b = val >> 8;
+      cpu->regs.c = val & 0xFF;
       return 10;
+    }
 
     case 0x4: /* INC B */
       cpu->regs.b = INC_B(cpu, cpu->regs.b);
@@ -144,28 +152,39 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x6: /* LD B,d8 */
-      cpu->regs.b = mmuReadByte(mmu, cpu->regs.pc); cpu->regs.pc++;
+      cpu->regs.b = mmuReadByte(cpu->mmu, cpu->regs.pc);
+      cpu->regs.pc++;
       return 10;
 
     case 0x7: /* RLCA */
-      cpu->regs.a = RLC(cpu, cpu->regs.a); cpuSetFlag(cpu, FLAG_Z, 0);
+      cpu->regs.a = RLC(cpu, cpu->regs.a);
+      cpuSetFlag(cpu, FLAG_Z, 0);
       return 4;
 
     case 0x8: /* LD (a16),SP */
-      mmuWriteWord(mmu, mmuReadWord(mmu, cpu->regs.pc), cpu->regs.sp); cpu->regs.pc += 2;
+      mmuWriteWord(cpu->mmu, mmuReadWord(cpu->mmu, cpu->regs.pc), cpu->regs.sp);
+      cpu->regs.pc += 2;
       return 20;
 
     case 0x9: /* ADD HL,BC */
-      word = ADD_WW(cpu, (cpu->regs.h << 8) + cpu->regs.l, (cpu->regs.b << 8) + cpu->regs.c); cpu->regs.h = word >> 8; cpu->regs.l = word & 0xFF;
+    {
+      uint16_t val = ADD_WW(cpu, (cpu->regs.h << 8) + cpu->regs.l, (cpu->regs.b << 8) + cpu->regs.c);
+      cpu->regs.h = val >> 8;
+      cpu->regs.l = val & 0xFF;
       return 10;
+    }
 
     case 0xA: /* LD A,(BC) */
-      cpu->regs.a = mmuReadByte(mmu, (cpu->regs.b << 8) + cpu->regs.c);
+      cpu->regs.a = mmuReadByte(cpu->mmu, (cpu->regs.b << 8) + cpu->regs.c);
       return 10;
 
     case 0xB: /* DEC BC */
-      word = DEC_W((cpu->regs.b << 8) + cpu->regs.c); cpu->regs.b = word >> 8; cpu->regs.c = word & 0xFF;
+    {
+      uint16_t val = DEC_W((cpu->regs.b << 8) + cpu->regs.c);
+      cpu->regs.b = val >> 8;
+      cpu->regs.c = val & 0xFF;
       return 10;
+    }
 
     case 0xC: /* INC C */
       cpu->regs.c = INC_B(cpu, cpu->regs.c);
@@ -176,11 +195,13 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0xE: /* LD C,d8 */
-      cpu->regs.c = mmuReadByte(mmu, cpu->regs.pc); cpu->regs.pc++;
+      cpu->regs.c = mmuReadByte(cpu->mmu, cpu->regs.pc);
+      cpu->regs.pc++;
       return 10;
 
     case 0xF: /* RRCA */
-      cpu->regs.a = RRC(cpu, cpu->regs.a); cpuSetFlag(cpu, FLAG_Z, 0);
+      cpu->regs.a = RRC(cpu, cpu->regs.a);
+      cpuSetFlag(cpu, FLAG_Z, 0);
       return 4;
 
     case 0x10: /* STOP 0 */
@@ -188,16 +209,25 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x11: /* LD DE,d16 */
-      word = mmuReadWord(mmu, cpu->regs.pc); cpu->regs.d = word >> 8; cpu->regs.e = word & 0xFF; cpu->regs.pc += 2;
+    {
+      uint16_t val = mmuReadWord(cpu->mmu, cpu->regs.pc);
+      cpu->regs.d = val >> 8;
+      cpu->regs.e = val & 0xFF;
+      cpu->regs.pc += 2;
       return 12;
+    }
 
     case 0x12: /* LD (DE),A */
-      mmuWriteByte(mmu, (cpu->regs.d << 8) + cpu->regs.e, cpu->regs.a);
+      mmuWriteByte(cpu->mmu, (cpu->regs.d << 8) + cpu->regs.e, cpu->regs.a);
       return 10;
 
     case 0x13: /* INC DE */
-      word = INC_W((cpu->regs.d << 8) + cpu->regs.e); cpu->regs.d = word >> 8; cpu->regs.e = word & 0xFF;
+    {
+      uint16_t val = INC_W((cpu->regs.d << 8) + cpu->regs.e);
+      cpu->regs.d = val >> 8;
+      cpu->regs.e = val & 0xFF;
       return 10;
+    }
 
     case 0x14: /* INC D */
       cpu->regs.d = INC_B(cpu, cpu->regs.d);
@@ -208,7 +238,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x16: /* LD D,d8 */
-      cpu->regs.d = mmuReadByte(mmu, cpu->regs.pc); cpu->regs.pc++;
+      cpu->regs.d = mmuReadByte(cpu->mmu, cpu->regs.pc); cpu->regs.pc++;
       return 10;
 
     case 0x17: /* RLA */
@@ -216,20 +246,28 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x18: /* JR r8 */
-      cpu->regs.pc = JR(cpu->regs.pc, mmuReadByte(mmu, cpu->regs.pc)); cpu->regs.pc++;
+      cpu->regs.pc = JR(cpu->regs.pc, mmuReadByte(cpu->mmu, cpu->regs.pc)); cpu->regs.pc++;
       return 12;
 
     case 0x19: /* ADD HL,DE */
-      word = ADD_WW(cpu, (cpu->regs.h << 8) + cpu->regs.l, (cpu->regs.d << 8) + cpu->regs.e); cpu->regs.h = word >> 8; cpu->regs.l = word & 0xFF;
+    {
+      uint16_t val = ADD_WW(cpu, (cpu->regs.h << 8) + cpu->regs.l, (cpu->regs.d << 8) + cpu->regs.e);
+      cpu->regs.h = val >> 8;
+      cpu->regs.l = val & 0xFF;
       return 10;
+    }
 
     case 0x1A: /* LD A,(DE) */
-      cpu->regs.a = mmuReadByte(mmu, (cpu->regs.d << 8) + cpu->regs.e);
+      cpu->regs.a = mmuReadByte(cpu->mmu, (cpu->regs.d << 8) + cpu->regs.e);
       return 10;
 
     case 0x1B: /* DEC DE */
-      word = DEC_W((cpu->regs.d << 8) + cpu->regs.e); cpu->regs.d = word >> 8; cpu->regs.e = word & 0xFF;
+    {
+      uint16_t val = DEC_W((cpu->regs.d << 8) + cpu->regs.e);
+      cpu->regs.d = val >> 8;
+      cpu->regs.e = val & 0xFF;
       return 10;
+    }
 
     case 0x1C: /* INC E */
       cpu->regs.e = INC_B(cpu, cpu->regs.e);
@@ -240,7 +278,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x1E: /* LD E,d8 */
-      cpu->regs.e = mmuReadByte(mmu, cpu->regs.pc); cpu->regs.pc++;
+      cpu->regs.e = mmuReadByte(cpu->mmu, cpu->regs.pc); cpu->regs.pc++;
       return 10;
 
     case 0x1F: /* RRA */
@@ -248,20 +286,40 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x20: /* JR NZ,r8 */
-      if (!cpuGetFlag(cpu, FLAG_Z)) { cpu->regs.pc = JR(cpu->regs.pc, mmuReadByte(mmu, cpu->regs.pc)); cpu->regs.pc++; return 12; } cpu->regs.pc++;
+      if (!cpuGetFlag(cpu, FLAG_Z)) {
+        cpu->regs.pc = JR(cpu->regs.pc, mmuReadByte(cpu->mmu, cpu->regs.pc));
+        cpu->regs.pc++;
+        return 12;
+      }
+      cpu->regs.pc++;
       return 10;
 
     case 0x21: /* LD HL,d16 */
-      word = mmuReadWord(mmu, cpu->regs.pc); cpu->regs.h = word >> 8; cpu->regs.l = word & 0xFF; cpu->regs.pc += 2;
+    {
+      uint16_t val = mmuReadWord(cpu->mmu, cpu->regs.pc);
+      cpu->regs.h = val >> 8;
+      cpu->regs.l = val & 0xFF;
+      cpu->regs.pc += 2;
       return 12;
+    }
 
     case 0x22: /* LD (HL+),A */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, cpu->regs.a); word = INC_W(word); cpu->regs.h = word >> 8; cpu->regs.l = word & 0xFF;
+    {
+      uint16_t val = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, val, cpu->regs.a);
+      val = INC_W(val);
+      cpu->regs.h = val >> 8;
+      cpu->regs.l = val & 0xFF;
       return 10;
+    }
 
     case 0x23: /* INC HL */
-      word = INC_W((cpu->regs.h << 8) + cpu->regs.l); cpu->regs.h = word >> 8; cpu->regs.l = word & 0xFF;
+    {
+      uint16_t val = INC_W((cpu->regs.h << 8) + cpu->regs.l);
+      cpu->regs.h = val >> 8;
+      cpu->regs.l = val & 0xFF;
       return 10;
+    }
 
     case 0x24: /* INC H */
       cpu->regs.h = INC_B(cpu, cpu->regs.h);
@@ -272,7 +330,8 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x26: /* LD H,d8 */
-      cpu->regs.h = mmuReadByte(mmu, cpu->regs.pc); cpu->regs.pc++;
+      cpu->regs.h = mmuReadByte(cpu->mmu, cpu->regs.pc);
+      cpu->regs.pc++;
       return 10;
 
     case 0x27: /* DAA */
@@ -299,20 +358,39 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
     }
 
     case 0x28: /* JR Z,r8 */
-      if (cpuGetFlag(cpu, FLAG_Z)) { cpu->regs.pc = JR(cpu->regs.pc, mmuReadByte(mmu, cpu->regs.pc)); cpu->regs.pc++; return 12; } cpu->regs.pc++;
+      if (cpuGetFlag(cpu, FLAG_Z)) {
+        cpu->regs.pc = JR(cpu->regs.pc, mmuReadByte(cpu->mmu, cpu->regs.pc));
+        cpu->regs.pc++;
+        return 12;
+      }
+      cpu->regs.pc++;
       return 10;
 
     case 0x29: /* ADD HL,HL */
-      word = ADD_WW(cpu, (cpu->regs.h << 8) + cpu->regs.l, (cpu->regs.h << 8) + cpu->regs.l); cpu->regs.h = word >> 8; cpu->regs.l = word & 0xFF;
+    {
+      uint16_t val = ADD_WW(cpu, (cpu->regs.h << 8) + cpu->regs.l, (cpu->regs.h << 8) + cpu->regs.l);
+      cpu->regs.h = val >> 8;
+      cpu->regs.l = val & 0xFF;
       return 10;
+    }
 
     case 0x2A: /* LD A,(HL+) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; cpu->regs.a = mmuReadByte(mmu, word); word = INC_W(word); cpu->regs.h = word >> 8; cpu->regs.l = word & 0xFF;
+    {
+      uint16_t val = (cpu->regs.h << 8) + cpu->regs.l;
+      cpu->regs.a = mmuReadByte(cpu->mmu, val);
+      val = INC_W(val);
+      cpu->regs.h = val >> 8;
+      cpu->regs.l = val & 0xFF;
       return 10;
+    }
 
     case 0x2B: /* DEC HL */
-      word = DEC_W((cpu->regs.h << 8) + cpu->regs.l); cpu->regs.h = word >> 8; cpu->regs.l = word & 0xFF;
+    {
+      uint16_t val = DEC_W((cpu->regs.h << 8) + cpu->regs.l);
+      cpu->regs.h = val >> 8;
+      cpu->regs.l = val & 0xFF;
       return 10;
+    }
 
     case 0x2C: /* INC L */
       cpu->regs.l = INC_B(cpu, cpu->regs.l);
@@ -323,56 +401,100 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x2E: /* LD L,d8 */
-      cpu->regs.l = mmuReadByte(mmu, cpu->regs.pc); cpu->regs.pc++;
+      cpu->regs.l = mmuReadByte(cpu->mmu, cpu->regs.pc);
+      cpu->regs.pc++;
       return 10;
 
     case 0x2F: /* CPL */
-      cpu->regs.a = ~cpu->regs.a; cpuSetFlag(cpu, FLAG_N, 1); cpuSetFlag(cpu, FLAG_H, 1);
+      cpu->regs.a = ~cpu->regs.a;
+      cpuSetFlag(cpu, FLAG_N, 1);
+      cpuSetFlag(cpu, FLAG_H, 1);
       return 4;
 
     case 0x30: /* JR NC,r8 */
-      if (!cpuGetFlag(cpu, FLAG_C)) { cpu->regs.pc = JR(cpu->regs.pc, mmuReadByte(mmu, cpu->regs.pc)); cpu->regs.pc++; return 12; } cpu->regs.pc++;
+      if (!cpuGetFlag(cpu, FLAG_C)) {
+        cpu->regs.pc = JR(cpu->regs.pc, mmuReadByte(cpu->mmu, cpu->regs.pc));
+        cpu->regs.pc++;
+        return 12;
+      }
+      cpu->regs.pc++;
       return 10;
 
     case 0x31: /* LD SP,d16 */
-      cpu->regs.sp = mmuReadWord(mmu, cpu->regs.pc); cpu->regs.pc += 2;
+      cpu->regs.sp = mmuReadWord(cpu->mmu, cpu->regs.pc);
+      cpu->regs.pc += 2;
       return 12;
 
     case 0x32: /* LD (HL-),A */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, cpu->regs.a); word = DEC_W(word); cpu->regs.h = word >> 8; cpu->regs.l = word & 0xFF;
+    {
+      uint16_t val = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, val, cpu->regs.a);
+      val = DEC_W(val);
+      cpu->regs.h = val >> 8;
+      cpu->regs.l = val & 0xFF;
       return 10;
+    }
 
     case 0x33: /* INC SP */
       cpu->regs.sp = INC_W(cpu->regs.sp);
       return 10;
 
     case 0x34: /* INC (HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; byte = INC_B(cpu, mmuReadByte(mmu, word)); mmuWriteByte(mmu, word, byte);
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      uint8_t val = INC_B(cpu, mmuReadByte(cpu->mmu, addr));
+      mmuWriteByte(cpu->mmu, addr, val);
       return 12;
+    }
 
     case 0x35: /* DEC (HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; byte = DEC_B(cpu, mmuReadByte(mmu, word)); mmuWriteByte(mmu, word, byte);
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      uint8_t val = DEC_B(cpu, mmuReadByte(cpu->mmu, addr));
+      mmuWriteByte(cpu->mmu, addr, val);
       return 12;
+    }
 
     case 0x36: /* LD (HL),d8 */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, mmuReadByte(mmu, cpu->regs.pc)); cpu->regs.pc++;
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, mmuReadByte(cpu->mmu, cpu->regs.pc));
+      cpu->regs.pc++;
       return 12;
+    }
 
     case 0x37: /* SCF */
-      cpuSetFlag(cpu, FLAG_C, 1); cpuSetFlag(cpu, FLAG_N, 0); cpuSetFlag(cpu, FLAG_H, 0);
+      cpuSetFlag(cpu, FLAG_C, 1);
+      cpuSetFlag(cpu, FLAG_N, 0);
+      cpuSetFlag(cpu, FLAG_H, 0);
       return 4;
 
     case 0x38: /* JR C,r8 */
-      if (cpuGetFlag(cpu, FLAG_C)) { cpu->regs.pc = JR(cpu->regs.pc, mmuReadByte(mmu, cpu->regs.pc)); cpu->regs.pc++; return 12; } cpu->regs.pc++;
+      if (cpuGetFlag(cpu, FLAG_C)) {
+        cpu->regs.pc = JR(cpu->regs.pc, mmuReadByte(cpu->mmu, cpu->regs.pc));
+        cpu->regs.pc++;
+        return 12;
+      }
+      cpu->regs.pc++;
       return 10;
 
     case 0x39: /* ADD HL,SP */
-      word = ADD_WW(cpu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.sp); cpu->regs.h = word >> 8; cpu->regs.l = word & 0xFF;
+    {
+      uint16_t val = ADD_WW(cpu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.sp);
+      cpu->regs.h = val >> 8;
+      cpu->regs.l = val & 0xFF;
       return 10;
+    }
 
     case 0x3A: /* LD A,(HL-) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; cpu->regs.a = mmuReadByte(mmu, word); word = INC_W(word); cpu->regs.h = word >> 8; cpu->regs.l = word & 0xFF;
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      cpu->regs.a = mmuReadByte(cpu->mmu, addr);
+      addr = INC_W(addr);
+      cpu->regs.h = addr >> 8;
+      cpu->regs.l = addr & 0xFF;
       return 10;
+    }
 
     case 0x3B: /* DEC SP */
       cpu->regs.sp = DEC_W(cpu->regs.sp);
@@ -387,11 +509,14 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x3E: /* LD A,d8 */
-      cpu->regs.a = mmuReadByte(mmu, cpu->regs.pc); cpu->regs.pc++;
+      cpu->regs.a = mmuReadByte(cpu->mmu, cpu->regs.pc);
+      cpu->regs.pc++;
       return 10;
 
     case 0x3F: /* CCF */
-      cpuSetFlag(cpu, FLAG_C, !cpuGetFlag(cpu, FLAG_C)); cpuSetFlag(cpu, FLAG_N, 0); cpuSetFlag(cpu, FLAG_H, 0);
+      cpuSetFlag(cpu, FLAG_C, !cpuGetFlag(cpu, FLAG_C));
+      cpuSetFlag(cpu, FLAG_N, 0);
+      cpuSetFlag(cpu, FLAG_H, 0);
       return 4;
 
     case 0x40: /* LD B,B */
@@ -419,7 +544,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x46: /* LD B,(HL) */
-      cpu->regs.b = mmuReadByte(mmu, (cpu->regs.h << 8) + cpu->regs.l);
+      cpu->regs.b = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
       return 10;
 
     case 0x47: /* LD B,A */
@@ -451,7 +576,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x4E: /* LD C,(HL) */
-      cpu->regs.c = mmuReadByte(mmu, (cpu->regs.h << 8) + cpu->regs.l);
+      cpu->regs.c = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
       return 10;
 
     case 0x4F: /* LD C,A */
@@ -483,7 +608,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x56: /* LD D,(HL) */
-      cpu->regs.d = mmuReadByte(mmu, (cpu->regs.h << 8) + cpu->regs.l);
+      cpu->regs.d = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
       return 10;
 
     case 0x57: /* LD D,A */
@@ -515,7 +640,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x5E: /* LD E,(HL) */
-      cpu->regs.e = mmuReadByte(mmu, (cpu->regs.h << 8) + cpu->regs.l);
+      cpu->regs.e = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
       return 10;
 
     case 0x5F: /* LD E,A */
@@ -547,7 +672,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x66: /* LD H,(HL) */
-      cpu->regs.h = mmuReadByte(mmu, (cpu->regs.h << 8) + cpu->regs.l);
+      cpu->regs.h = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
       return 10;
 
     case 0x67: /* LD H,A */
@@ -579,7 +704,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x6E: /* LD L,(HL) */
-      cpu->regs.l = mmuReadByte(mmu, (cpu->regs.h << 8) + cpu->regs.l);
+      cpu->regs.l = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
       return 10;
 
     case 0x6F: /* LD L,A */
@@ -587,27 +712,27 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x70: /* LD (HL),B */
-      mmuWriteByte(mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.b);
+      mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.b);
       return 10;
 
     case 0x71: /* LD (HL),C */
-      mmuWriteByte(mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.c);
+      mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.c);
       return 10;
 
     case 0x72: /* LD (HL),D */
-      mmuWriteByte(mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.d);
+      mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.d);
       return 10;
 
     case 0x73: /* LD (HL),E */
-      mmuWriteByte(mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.e);
+      mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.e);
       return 10;
 
     case 0x74: /* LD (HL),H */
-      mmuWriteByte(mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.h);
+      mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.h);
       return 10;
 
     case 0x75: /* LD (HL),L */
-      mmuWriteByte(mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.l);
+      mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.l);
       return 10;
 
     case 0x76: /* HALT */
@@ -615,7 +740,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x77: /* LD (HL),A */
-      mmuWriteByte(mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.a);
+      mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.a);
       return 10;
 
     case 0x78: /* LD A,B */
@@ -643,7 +768,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x7E: /* LD A,(HL) */
-      cpu->regs.a = mmuReadByte(mmu, (cpu->regs.h << 8) + cpu->regs.l);
+      cpu->regs.a = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
       return 10;
 
     case 0x7F: /* LD A,A */
@@ -675,7 +800,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x86: /* ADD A,(HL) */
-      cpu->regs.a = ADD(cpu, mmuReadByte(mmu, (cpu->regs.h << 8) + cpu->regs.l));
+      cpu->regs.a = ADD(cpu, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l));
       return 10;
 
     case 0x87: /* ADD A,A */
@@ -707,7 +832,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x8E: /* ADC A,(HL) */
-      cpu->regs.a = ADC(cpu, mmuReadByte(mmu, (cpu->regs.h << 8) + cpu->regs.l));
+      cpu->regs.a = ADC(cpu, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l));
       return 10;
 
     case 0x8F: /* ADC A,A */
@@ -739,7 +864,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x96: /* SUB A,(HL) */
-      cpu->regs.a = SUB(cpu, mmuReadByte(mmu, (cpu->regs.h << 8) + cpu->regs.l));
+      cpu->regs.a = SUB(cpu, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l));
       return 10;
 
     case 0x97: /* SUB A,A */
@@ -771,7 +896,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0x9E: /* SBC A,(HL) */
-      cpu->regs.a = SBC(cpu, mmuReadByte(mmu, (cpu->regs.h << 8) + cpu->regs.l));
+      cpu->regs.a = SBC(cpu, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l));
       return 10;
 
     case 0x9F: /* SBC A,A */
@@ -803,7 +928,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0xA6: /* AND (HL) */
-      cpu->regs.a = AND(cpu, cpu->regs.a, mmuReadByte(mmu, (cpu->regs.h << 8) + cpu->regs.l));
+      cpu->regs.a = AND(cpu, cpu->regs.a, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l));
       return 10;
 
     case 0xA7: /* AND A */
@@ -835,7 +960,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0xAE: /* XOR (HL) */
-      cpu->regs.a = XOR(cpu, cpu->regs.a, mmuReadByte(mmu, (cpu->regs.h << 8) + cpu->regs.l));
+      cpu->regs.a = XOR(cpu, cpu->regs.a, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l));
       return 10;
 
     case 0xAF: /* XOR A */
@@ -867,7 +992,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0xB6: /* OR (HL) */
-      cpu->regs.a = OR(cpu, cpu->regs.a, mmuReadByte(mmu, (cpu->regs.h << 8) + cpu->regs.l));
+      cpu->regs.a = OR(cpu, cpu->regs.a, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l));
       return 10;
 
     case 0xB7: /* OR A */
@@ -899,7 +1024,7 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0xBE: /* CP (HL) */
-      SUB(cpu, mmuReadByte(mmu, (cpu->regs.h << 8) + cpu->regs.l));
+      SUB(cpu, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l));
       return 10;
 
     case 0xBF: /* CP A */
@@ -907,47 +1032,72 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0xC0: /* RET NZ */
-      if (!cpuGetFlag(cpu, FLAG_Z)) { cpu->regs.pc = POP(cpu, mmu); return 20; }
+      if (!cpuGetFlag(cpu, FLAG_Z)) {
+        cpu->regs.pc = POP(cpu);
+        return 20;
+      }
       return 10;
 
     case 0xC1: /* POP BC */
-      word = POP(cpu, mmu); cpu->regs.b = word >> 8; cpu->regs.c = word & 0xFF;
+    {
+      uint16_t val = POP(cpu);
+      cpu->regs.b = val >> 8;
+      cpu->regs.c = val & 0xFF;
       return 12;
+    }
 
     case 0xC2: /* JP NZ,a16 */
-      if (!cpuGetFlag(cpu, FLAG_Z)) { cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc); return 20; } cpu->regs.pc += 2;
+      if (!cpuGetFlag(cpu, FLAG_Z)) {
+        cpu->regs.pc = mmuReadWord(cpu->mmu, cpu->regs.pc);
+        return 20;
+      }
+      cpu->regs.pc += 2;
       return 12;
 
     case 0xC3: /* JP a16 */
-      cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc);
+      cpu->regs.pc = mmuReadWord(cpu->mmu, cpu->regs.pc);
       return 16;
 
     case 0xC4: /* CALL NZ,a16 */
-      if (!cpuGetFlag(cpu, FLAG_Z)) { PUSH(cpu, mmu, cpu->regs.pc + 0x2); cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc); return 0x18; } cpu->regs.pc += 2;
+      if (!cpuGetFlag(cpu, FLAG_Z)) {
+        PUSH(cpu, cpu->regs.pc + 0x2);
+        cpu->regs.pc = mmuReadWord(cpu->mmu, cpu->regs.pc);
+        return 0x18;
+      }
+      cpu->regs.pc += 2;
       return 12;
 
     case 0xC5: /* PUSH BC */
-      PUSH(cpu, mmu, (cpu->regs.b << 8) + cpu->regs.c);
+      PUSH(cpu, (cpu->regs.b << 8) + cpu->regs.c);
       return 16;
 
     case 0xC6: /* ADD A,d8 */
-      cpu->regs.a = ADD(cpu, mmuReadByte(mmu, cpu->regs.pc)); cpu->regs.pc++;
+      cpu->regs.a = ADD(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc));
+      cpu->regs.pc++;
       return 10;
 
     case 0xC7: /* RST 00H */
-      PUSH(cpu, mmu, cpu->regs.pc); cpu->regs.pc = 0;
+      PUSH(cpu, cpu->regs.pc);
+      cpu->regs.pc = 0;
       return 16;
 
     case 0xC8: /* RET Z */
-      if (cpuGetFlag(cpu, FLAG_Z)) { cpu->regs.pc = POP(cpu, mmu); return 20; }
+      if (cpuGetFlag(cpu, FLAG_Z)) {
+        cpu->regs.pc = POP(cpu);
+        return 20;
+      }
       return 10;
 
     case 0xC9: /* RET */
-      cpu->regs.pc = POP(cpu, mmu);
+      cpu->regs.pc = POP(cpu);
       return 16;
 
     case 0xCA: /* JP Z,a16 */
-      if (cpuGetFlag(cpu, FLAG_Z)) { cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc); return 16; } cpu->regs.pc += 2;
+      if (cpuGetFlag(cpu, FLAG_Z)) {
+        cpu->regs.pc = mmuReadWord(cpu->mmu, cpu->regs.pc);
+        return 16;
+      }
+      cpu->regs.pc += 2;
       return 12;
 
     case 0xCB: /* PREFIX CB */
@@ -955,100 +1105,148 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0xCC: /* CALL Z,a16 */
-      if (cpuGetFlag(cpu, FLAG_Z)) { PUSH(cpu, mmu, cpu->regs.pc + 0x2); cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc); return 0x18; } cpu->regs.pc += 2;
+      if (cpuGetFlag(cpu, FLAG_Z)) {
+        PUSH(cpu, cpu->regs.pc + 0x2);
+        cpu->regs.pc = mmuReadWord(cpu->mmu, cpu->regs.pc);
+        return 0x18;
+      }
+      cpu->regs.pc += 2;
       return 12;
 
     case 0xCD: /* CALL a16 */
-      PUSH(cpu, mmu, cpu->regs.pc + 0x2); cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc);
+      PUSH(cpu, cpu->regs.pc + 0x2);
+      cpu->regs.pc = mmuReadWord(cpu->mmu, cpu->regs.pc);
       return 0x18;
 
     case 0xCE: /* ADC A,d8 */
-      cpu->regs.a = ADC(cpu, mmuReadByte(mmu, cpu->regs.pc)); cpu->regs.pc++;
+      cpu->regs.a = ADC(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc));
+      cpu->regs.pc++;
       return 10;
 
     case 0xCF: /* RST 08H */
-      PUSH(cpu, mmu, cpu->regs.pc); cpu->regs.pc = 10;
+      PUSH(cpu, cpu->regs.pc);
+      cpu->regs.pc = 10;
       return 16;
 
     case 0xD0: /* RET NC */
-      if (!cpuGetFlag(cpu, FLAG_C)) { cpu->regs.pc = POP(cpu, mmu); return 0x20; }
+      if (!cpuGetFlag(cpu, FLAG_C)) {
+        cpu->regs.pc = POP(cpu);
+        return 0x20;
+      }
       return 10;
 
     case 0xD1: /* POP DE */
-      word = POP(cpu, mmu); cpu->regs.d = word >> 8; cpu->regs.e = word & 0xFF;
+    {
+      uint16_t val = POP(cpu);
+      cpu->regs.d = val >> 8;
+      cpu->regs.e = val & 0xFF;
       return 12;
+    }
 
     case 0xD2: /* JP NC,a16 */
-      if (!cpuGetFlag(cpu, FLAG_C)) { cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc); return 16; } cpu->regs.pc += 2;
+      if (!cpuGetFlag(cpu, FLAG_C)) {
+        cpu->regs.pc = mmuReadWord(cpu->mmu, cpu->regs.pc);
+        return 16;
+      }
+      cpu->regs.pc += 2;
       return 12;
 
     case 0xD4: /* CALL NC,a16 */
-      if (!cpuGetFlag(cpu, FLAG_C)) { PUSH(cpu, mmu, cpu->regs.pc + 0x2); cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc); return 0x18; } cpu->regs.pc += 2;
+      if (!cpuGetFlag(cpu, FLAG_C)) {
+        PUSH(cpu, cpu->regs.pc + 0x2);
+        cpu->regs.pc = mmuReadWord(cpu->mmu, cpu->regs.pc);
+        return 0x18;
+      }
+      cpu->regs.pc += 2;
       return 12;
 
     case 0xD5: /* PUSH DE */
-      PUSH(cpu, mmu, (cpu->regs.d << 8) + cpu->regs.e);
+      PUSH(cpu, (cpu->regs.d << 8) + cpu->regs.e);
       return 16;
 
     case 0xD6: /* SUB A,d8 */
-      cpu->regs.a = SUB(cpu, mmuReadByte(mmu, cpu->regs.pc)); cpu->regs.pc++;
+      cpu->regs.a = SUB(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc));
+      cpu->regs.pc++;
       return 10;
 
     case 0xD7: /* RST 10H */
-      PUSH(cpu, mmu, cpu->regs.pc); cpu->regs.pc = 16;
+      PUSH(cpu, cpu->regs.pc);
+      cpu->regs.pc = 16;
       return 16;
 
     case 0xD8: /* RET C */
-      if (cpuGetFlag(cpu, FLAG_C)) { cpu->regs.pc = POP(cpu, mmu); return 20; }
+      if (cpuGetFlag(cpu, FLAG_C)) {
+        cpu->regs.pc = POP(cpu);
+        return 20;
+      }
       return 10;
 
     case 0xD9: /* RETI */
-      cpu->regs.pc = POP(cpu, mmu); cpu->ime = true;
+      cpu->regs.pc = POP(cpu);
+      cpu->ime = true;
       return 16;
 
     case 0xDA: /* JP C,a16 */
-      if (cpuGetFlag(cpu, FLAG_C)) { cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc); return 16; } cpu->regs.pc += 2;
+      if (cpuGetFlag(cpu, FLAG_C)) {
+        cpu->regs.pc = mmuReadWord(cpu->mmu, cpu->regs.pc);
+        return 16;
+      }
+      cpu->regs.pc += 2;
       return 12;
 
     case 0xDC: /* CALL C,a16 */
-      if (cpuGetFlag(cpu, FLAG_C)) { PUSH(cpu, mmu, cpu->regs.pc + 0x2); cpu->regs.pc = mmuReadWord(mmu, cpu->regs.pc); return 0x18; } cpu->regs.pc += 2;
+      if (cpuGetFlag(cpu, FLAG_C)) {
+        PUSH(cpu, cpu->regs.pc + 0x2);
+        cpu->regs.pc = mmuReadWord(cpu->mmu, cpu->regs.pc);
+        return 0x18;
+      }
+      cpu->regs.pc += 2;
       return 12;
 
     case 0xDE: /* SBC A,d8 */
-      cpu->regs.a = SBC(cpu, mmuReadByte(mmu, cpu->regs.pc)); cpu->regs.pc++;
+      cpu->regs.a = SBC(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc));
+      cpu->regs.pc++;
       return 10;
 
     case 0xDF: /* RST 18H */
-      PUSH(cpu, mmu, cpu->regs.pc); cpu->regs.pc = 0x18;
+      PUSH(cpu, cpu->regs.pc);
+      cpu->regs.pc = 0x18;
       return 16;
 
     case 0xE0: /* LDH (a8),A */
-      mmuWriteByte(mmu, 0xFF00 + mmuReadByte(mmu, cpu->regs.pc), cpu->regs.a); cpu->regs.pc++;
+      mmuWriteByte(cpu->mmu, 0xFF00 + mmuReadByte(cpu->mmu, cpu->regs.pc), cpu->regs.a);
+      cpu->regs.pc++;
       return 12;
 
     case 0xE1: /* POP HL */
-      word = POP(cpu, mmu); cpu->regs.h = word >> 8; cpu->regs.l = word & 0xFF;
+    {
+      uint16_t val = POP(cpu);
+      cpu->regs.h = val >> 8;
+      cpu->regs.l = val & 0xFF;
       return 12;
+    }
 
     case 0xE2: /* LD (C),A */
-      mmuWriteByte(mmu, 0xFF00 + cpu->regs.c, cpu->regs.a);
+      mmuWriteByte(cpu->mmu, 0xFF00 + cpu->regs.c, cpu->regs.a);
       return 10;
 
     case 0xE5: /* PUSH HL */
-      PUSH(cpu, mmu, (cpu->regs.h << 8) + cpu->regs.l);
+      PUSH(cpu, (cpu->regs.h << 8) + cpu->regs.l);
       return 16;
 
     case 0xE6: /* AND d8 */
-      cpu->regs.a = AND(cpu, cpu->regs.a, mmuReadByte(mmu, cpu->regs.pc)); cpu->regs.pc++;
+      cpu->regs.a = AND(cpu, cpu->regs.a, mmuReadByte(cpu->mmu, cpu->regs.pc));
+      cpu->regs.pc++;
       return 10;
 
     case 0xE7: /* RST 20H */
-      PUSH(cpu, mmu, cpu->regs.pc); cpu->regs.pc = 0x20;
+      PUSH(cpu, cpu->regs.pc);
+      cpu->regs.pc = 0x20;
       return 16;
 
     case 0xE8: /* ADD SP,r8 */
     {
-      uint8_t data = mmuReadByte(mmu, cpu->regs.pc);
+      uint8_t data = mmuReadByte(cpu->mmu, cpu->regs.pc);
 
       cpuSetFlag(cpu, FLAG_Z, 0);
       cpuSetFlag(cpu, FLAG_N, 0);
@@ -1066,27 +1264,35 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0xEA: /* LD (a16),A */
-      mmuWriteByte(mmu, mmuReadWord(mmu, cpu->regs.pc), cpu->regs.a); cpu->regs.pc += 2;
+      mmuWriteByte(cpu->mmu, mmuReadWord(cpu->mmu, cpu->regs.pc), cpu->regs.a);
+      cpu->regs.pc += 2;
       return 16;
 
     case 0xEE: /* XOR d8 */
-      cpu->regs.a = XOR(cpu, cpu->regs.a, mmuReadByte(mmu, cpu->regs.pc)); cpu->regs.pc++;
+      cpu->regs.a = XOR(cpu, cpu->regs.a, mmuReadByte(cpu->mmu, cpu->regs.pc));
+      cpu->regs.pc++;
       return 10;
 
     case 0xEF: /* RST 28H */
-      PUSH(cpu, mmu, cpu->regs.pc); cpu->regs.pc = 0x28;
+      PUSH(cpu, cpu->regs.pc);
+      cpu->regs.pc = 0x28;
       return 16;
 
     case 0xF0: /* LDH A,(a8) */
-      cpu->regs.a = mmuReadByte(mmu, 0xFF00 + mmuReadByte(mmu, cpu->regs.pc)); cpu->regs.pc++;
+      cpu->regs.a = mmuReadByte(cpu->mmu, 0xFF00 + mmuReadByte(cpu->mmu, cpu->regs.pc));
+      cpu->regs.pc++;
       return 12;
 
     case 0xF1: /* POP AF */
-      word = POP(cpu, mmu); cpu->regs.a = word >> 8; cpu->regs.f = word & 0xF0;
+    {
+      uint16_t val = POP(cpu);
+      cpu->regs.a = val >> 8;
+      cpu->regs.f = val & 0xF0;
       return 12;
+    }
 
     case 0xF2: /* LD A,(C) */
-      cpu->regs.a = mmuReadByte(mmu, 0xFF00 + cpu->regs.c);
+      cpu->regs.a = mmuReadByte(cpu->mmu, 0xFF00 + cpu->regs.c);
       return 10;
 
     case 0xF3: /* DI */
@@ -1094,29 +1300,31 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0xF5: /* PUSH AF */
-      PUSH(cpu, mmu, (cpu->regs.a << 8) + cpu->regs.f);
+      PUSH(cpu, (cpu->regs.a << 8) + cpu->regs.f);
       return 16;
 
     case 0xF6: /* OR d8 */
-      cpu->regs.a = OR(cpu, cpu->regs.a, mmuReadByte(mmu, cpu->regs.pc)); cpu->regs.pc++;
+      cpu->regs.a = OR(cpu, cpu->regs.a, mmuReadByte(cpu->mmu, cpu->regs.pc));
+      cpu->regs.pc++;
       return 10;
 
     case 0xF7: /* RST 30H */
-      PUSH(cpu, mmu, cpu->regs.pc); cpu->regs.pc = 0x30;
+      PUSH(cpu, cpu->regs.pc);
+      cpu->regs.pc = 0x30;
       return 16;
 
     case 0xF8: /* LD HL,SP+r8 */
      {
-      uint8_t data = mmuReadByte(mmu, cpu->regs.pc);
-      uint16_t word = cpu->regs.sp + data;
+      uint8_t data = mmuReadByte(cpu->mmu, cpu->regs.pc);
+      uint16_t val = cpu->regs.sp + data;
 
       cpuSetFlag(cpu, FLAG_Z, 0);
       cpuSetFlag(cpu, FLAG_N, 0);
       cpuSetFlag(cpu, FLAG_H, !!((cpu->regs.sp & 0xF) + (data & 0xF) > 0xF)); // TODO: Implement this carry elsewhere?
       cpuSetFlag(cpu, FLAG_C, !!((cpu->regs.sp & 0xFF) + data > 0xFF));
 
-      cpu->regs.h = word >> 8;
-      cpu->regs.l = word;
+      cpu->regs.h = val >> 8;
+      cpu->regs.l = val;
       cpu->regs.pc++;
 
       return 12;
@@ -1127,7 +1335,8 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xFA: /* LD A,(a16) */
-      cpu->regs.a = mmuReadByte(mmu, mmuReadWord(mmu, cpu->regs.pc)); cpu->regs.pc += 2;
+      cpu->regs.a = mmuReadByte(cpu->mmu, mmuReadWord(cpu->mmu, cpu->regs.pc));
+      cpu->regs.pc += 2;
       return 16;
 
     case 0xFB: /* EI */
@@ -1135,21 +1344,21 @@ uint8_t cpuOpcode(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 4;
 
     case 0xFE: /* CP d8 */
-      SUB(cpu, mmuReadByte(mmu, cpu->regs.pc)); cpu->regs.pc++;
+      SUB(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc));
+      cpu->regs.pc++;
       return 10;
 
     case 0xFF: /* RST 38H */
-      PUSH(cpu, mmu, cpu->regs.pc); cpu->regs.pc = 0x38;
+      PUSH(cpu, cpu->regs.pc);
+      cpu->regs.pc = 0x38;
       return 16;
   }
 
   return 0;
 }
 
-uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
+uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 {
-  uint16_t word;
-
   switch (opcode) {
     case 0x0: /* RLC B */
       cpu->regs.b = RLC(cpu, cpu->regs.b);
@@ -1176,8 +1385,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x6: /* RLC (HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, RLC(cpu, mmuReadByte(mmu, word)));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, RLC(cpu, mmuReadByte(cpu->mmu, addr)));
       return 16;
+    }
 
     case 0x7: /* RLC A */
       cpu->regs.a = RLC(cpu, cpu->regs.a);
@@ -1208,8 +1420,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xE: /* RRC (HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, RRC(cpu, mmuReadByte(mmu, word)));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, RRC(cpu, mmuReadByte(cpu->mmu, addr)));
       return 16;
+    }
 
     case 0xF: /* RRC A */
       cpu->regs.a = RRC(cpu, cpu->regs.a);
@@ -1240,8 +1455,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x16: /* RL (HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, RL(cpu, mmuReadByte(mmu, word)));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, RL(cpu, mmuReadByte(cpu->mmu, addr)));
       return 16;
+    }
 
     case 0x17: /* RL A */
       cpu->regs.a = RL(cpu, cpu->regs.a);
@@ -1272,8 +1490,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x1E: /* RR (HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, RR(cpu, mmuReadByte(mmu, word)));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, RR(cpu, mmuReadByte(cpu->mmu, addr)));
       return 16;
+    }
 
     case 0x1F: /* RR A */
       cpu->regs.a = RR(cpu, cpu->regs.a);
@@ -1304,8 +1525,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x26: /* SLA (HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, SLA(cpu, mmuReadByte(mmu, word)));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, SLA(cpu, mmuReadByte(cpu->mmu, addr)));
       return 16;
+    }
 
     case 0x27: /* SLA A */
       cpu->regs.a = SLA(cpu, cpu->regs.a);
@@ -1336,8 +1560,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x2E: /* SRA (HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, SRA(cpu, mmuReadByte(mmu, word)));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, SRA(cpu, mmuReadByte(cpu->mmu, addr)));
       return 16;
+    }
 
     case 0x2F: /* SRA A */
       cpu->regs.a = SRA(cpu, cpu->regs.a);
@@ -1368,8 +1595,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x36: /* SWAP (HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, SWAP(cpu, mmuReadByte(mmu, word)));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, SWAP(cpu, mmuReadByte(cpu->mmu, addr)));
       return 16;
+    }
 
     case 0x37: /* SWAP A */
       cpu->regs.a = SWAP(cpu, cpu->regs.a);
@@ -1400,8 +1630,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x3E: /* SRL (HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, SRL(cpu, mmuReadByte(mmu, word)));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, SRL(cpu, mmuReadByte(cpu->mmu, addr)));
       return 16;
+    }
 
     case 0x3F: /* SRL A */
       cpu->regs.a = SRL(cpu, cpu->regs.a);
@@ -1432,8 +1665,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x46: /* BIT 0,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; BIT(cpu, mmuReadByte(mmu, word), 0);
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      BIT(cpu, mmuReadByte(cpu->mmu, addr), 0);
       return 16;
+    }
 
     case 0x47: /* BIT 0,A */
       BIT(cpu, cpu->regs.a, 0);
@@ -1464,8 +1700,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x4E: /* BIT 1,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; BIT(cpu, mmuReadByte(mmu, word), 1);
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      BIT(cpu, mmuReadByte(cpu->mmu, addr), 1);
       return 16;
+    }
 
     case 0x4F: /* BIT 1,A */
       BIT(cpu, cpu->regs.a, 1);
@@ -1496,8 +1735,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x56: /* BIT 2,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; BIT(cpu, mmuReadByte(mmu, word), 2);
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      BIT(cpu, mmuReadByte(cpu->mmu, addr), 2);
       return 16;
+    }
 
     case 0x57: /* BIT 2,A */
       BIT(cpu, cpu->regs.a, 2);
@@ -1528,8 +1770,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x5E: /* BIT 3,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; BIT(cpu, mmuReadByte(mmu, word), 3);
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      BIT(cpu, mmuReadByte(cpu->mmu, addr), 3);
       return 16;
+    }
 
     case 0x5F: /* BIT 3,A */
       BIT(cpu, cpu->regs.a, 3);
@@ -1560,8 +1805,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x66: /* BIT 4,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; BIT(cpu, mmuReadByte(mmu, word), 4);
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      BIT(cpu, mmuReadByte(cpu->mmu, addr), 4);
       return 16;
+    }
 
     case 0x67: /* BIT 4,A */
       BIT(cpu, cpu->regs.a, 4);
@@ -1592,8 +1840,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x6E: /* BIT 5,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; BIT(cpu, mmuReadByte(mmu, word), 5);
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      BIT(cpu, mmuReadByte(cpu->mmu, addr), 5);
       return 16;
+    }
 
     case 0x6F: /* BIT 5,A */
       BIT(cpu, cpu->regs.a, 5);
@@ -1624,8 +1875,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x76: /* BIT 6,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; BIT(cpu, mmuReadByte(mmu, word), 6);
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      BIT(cpu, mmuReadByte(cpu->mmu, addr), 6);
       return 16;
+    }
 
     case 0x77: /* BIT 6,A */
       BIT(cpu, cpu->regs.a, 6);
@@ -1656,8 +1910,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x7E: /* BIT 7,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; BIT(cpu, mmuReadByte(mmu, word), 7);
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      BIT(cpu, mmuReadByte(cpu->mmu, addr), 7);
       return 16;
+    }
 
     case 0x7F: /* BIT 7,A */
       BIT(cpu, cpu->regs.a, 7);
@@ -1688,8 +1945,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x86: /* RES 0,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, RES(mmuReadByte(mmu, word), 0));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, RES(mmuReadByte(cpu->mmu, addr), 0));
       return 16;
+    }
 
     case 0x87: /* RES 0,A */
       cpu->regs.a = RES(cpu->regs.a, 0);
@@ -1720,8 +1980,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x8E: /* RES 1,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, RES(mmuReadByte(mmu, word), 1));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, RES(mmuReadByte(cpu->mmu, addr), 1));
       return 16;
+    }
 
     case 0x8F: /* RES 1,A */
       cpu->regs.a = RES(cpu->regs.a, 1);
@@ -1752,8 +2015,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x96: /* RES 2,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, RES(mmuReadByte(mmu, word), 2));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, RES(mmuReadByte(cpu->mmu, addr), 2));
       return 16;
+    }
 
     case 0x97: /* RES 2,A */
       cpu->regs.a = RES(cpu->regs.a, 2);
@@ -1784,8 +2050,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0x9E: /* RES 3,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, RES(mmuReadByte(mmu, word), 3));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, RES(mmuReadByte(cpu->mmu, addr), 3));
       return 16;
+    }
 
     case 0x9F: /* RES 3,A */
       cpu->regs.a = RES(cpu->regs.a, 3);
@@ -1816,8 +2085,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xA6: /* RES 4,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, RES(mmuReadByte(mmu, word), 4));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, RES(mmuReadByte(cpu->mmu, addr), 4));
       return 16;
+    }
 
     case 0xA7: /* RES 4,A */
       cpu->regs.a = RES(cpu->regs.a, 4);
@@ -1848,8 +2120,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xAE: /* RES 5,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, RES(mmuReadByte(mmu, word), 5));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, RES(mmuReadByte(cpu->mmu, addr), 5));
       return 16;
+    }
 
     case 0xAF: /* RES 5,A */
       cpu->regs.a = RES(cpu->regs.a, 5);
@@ -1880,8 +2155,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xB6: /* RES 6,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, RES(mmuReadByte(mmu, word), 6));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, RES(mmuReadByte(cpu->mmu, addr), 6));
       return 16;
+    }
 
     case 0xB7: /* RES 6,A */
       cpu->regs.a = RES(cpu->regs.a, 6);
@@ -1912,8 +2190,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xBE: /* RES 7,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, RES(mmuReadByte(mmu, word), 7));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, RES(mmuReadByte(cpu->mmu, addr), 7));
       return 16;
+    }
 
     case 0xBF: /* RES 7,A */
       cpu->regs.a = RES(cpu->regs.a, 7);
@@ -1944,8 +2225,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xC6: /* SET 0,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, SET(mmuReadByte(mmu, word), 0));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, SET(mmuReadByte(cpu->mmu, addr), 0));
       return 16;
+    }
 
     case 0xC7: /* SET 0,A */
       cpu->regs.a = SET(cpu->regs.a, 0);
@@ -1976,8 +2260,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xCE: /* SET 1,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, SET(mmuReadByte(mmu, word), 1));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, SET(mmuReadByte(cpu->mmu, addr), 1));
       return 16;
+    }
 
     case 0xCF: /* SET 1,A */
       cpu->regs.a = SET(cpu->regs.a, 1);
@@ -2008,8 +2295,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xD6: /* SET 2,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, SET(mmuReadByte(mmu, word), 2));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, SET(mmuReadByte(cpu->mmu, addr), 2));
       return 16;
+    }
 
     case 0xD7: /* SET 2,A */
       cpu->regs.a = SET(cpu->regs.a, 2);
@@ -2040,8 +2330,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xDE: /* SET 3,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, SET(mmuReadByte(mmu, word), 3));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, SET(mmuReadByte(cpu->mmu, addr), 3));
       return 16;
+    }
 
     case 0xDF: /* SET 3,A */
       cpu->regs.a = SET(cpu->regs.a, 3);
@@ -2072,8 +2365,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xE6: /* SET 4,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, SET(mmuReadByte(mmu, word), 4));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, SET(mmuReadByte(cpu->mmu, addr), 4));
       return 16;
+    }
 
     case 0xE7: /* SET 4,A */
       cpu->regs.a = SET(cpu->regs.a, 4);
@@ -2104,8 +2400,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xEE: /* SET 5,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, SET(mmuReadByte(mmu, word), 5));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, SET(mmuReadByte(cpu->mmu, addr), 5));
       return 16;
+    }
 
     case 0xEF: /* SET 5,A */
       cpu->regs.a = SET(cpu->regs.a, 5);
@@ -2136,8 +2435,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xF6: /* SET 6,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, SET(mmuReadByte(mmu, word), 6));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, SET(mmuReadByte(cpu->mmu, addr), 6));
       return 16;
+    }
 
     case 0xF7: /* SET 6,A */
       cpu->regs.a = SET(cpu->regs.a, 6);
@@ -2168,8 +2470,11 @@ uint8_t cpuOpcodeCB(CPU *cpu, MMU *mmu, uint8_t opcode)
       return 10;
 
     case 0xFE: /* SET 7,(HL) */
-      word = (cpu->regs.h << 8) + cpu->regs.l; mmuWriteByte(mmu, word, SET(mmuReadByte(mmu, word), 7));
+    {
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, SET(mmuReadByte(cpu->mmu, addr), 7));
       return 16;
+    }
 
     case 0xFF: /* SET 7,A */
       cpu->regs.a = SET(cpu->regs.a, 7);
