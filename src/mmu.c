@@ -22,6 +22,6 @@ void mmuWriteByte(MMU *mmu, uint16_t address, uint8_t data)
 
 void mmuWriteWord(MMU *mmu, uint16_t address, uint16_t data)
 {
-    mmuWriteByte(mmu, address, data & 0xFF);
+    mmuWriteByte(mmu, address, data);
     mmuWriteByte(mmu, address + 1, data >> 8);
 }

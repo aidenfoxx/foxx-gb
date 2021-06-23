@@ -11,7 +11,7 @@ void gameboyInit(Gameboy *gameboy, Cartridge *cartridge)
 
 void gameboyStep(Gameboy *gameboy)
 {
-	uint8_t cycles = cpuStep(&gameboy->cpu);
+	unsigned cycles = cpuStep(&gameboy->cpu);
 
 	inputStep(&gameboy->input);
 	timerStep(&gameboy->timer, cycles);
