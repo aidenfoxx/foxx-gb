@@ -105,11 +105,13 @@ inline static uint16_t INC_W(uint16_t op)
 
 inline static uint8_t DEC_B(CPU *cpu, uint8_t op)
 {
-	cpuSetFlag(cpu, FLAG_Z, !(--op));
-	cpuSetFlag(cpu, FLAG_N, 1);
-	cpuSetFlag(cpu, FLAG_H, op & 0xF);
+  uint8_t result = op - 1;
 
-	return op;
+	cpuSetFlag(cpu, FLAG_Z, !result);
+	cpuSetFlag(cpu, FLAG_N, 1);
+	cpuSetFlag(cpu, FLAG_H, (result & 0xF) == 0xF);
+
+	return result;
 }
 
 inline static uint16_t DEC_W(uint16_t op)
@@ -164,10 +166,10 @@ inline static void PUSH(CPU *cpu, uint16_t val)
 
 inline static uint16_t POP(CPU *cpu)
 {
-	uint16_t val = mmuReadWord(cpu->mmu, cpu->regs.sp);
+	uint16_t result = mmuReadWord(cpu->mmu, cpu->regs.sp);
 	cpu->regs.sp += 2;
 
-	return val;
+	return result;
 }
 
 /**
@@ -175,11 +177,11 @@ inline static uint16_t POP(CPU *cpu)
  */
 inline static uint8_t SWAP(CPU *cpu, uint8_t a)
 {
-  int8_t result = (a >> 4) | ((a & 0xF) << 4);
-  cpuSetFlag(cpu, FLAG_Z, !a ? 1 : 0);
+  uint8_t result = (a >> 4) | (a << 4);
+  cpuSetFlag(cpu, FLAG_Z, !result);
   cpuSetFlag(cpu, FLAG_N, 0);
   cpuSetFlag(cpu, FLAG_H, 0);
-  cpuSetFlag(cpu, FLAG_Z, 0);
+  cpuSetFlag(cpu, FLAG_C, 0);
 
   return result;
 }
@@ -307,14 +309,14 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0x2: /* LD (BC),A */
       mmuWriteByte(cpu->mmu, (cpu->regs.b << 8) + cpu->regs.c, cpu->regs.a);
-      return 10;
+      return 8;
 
     case 0x3: /* INC BC */
     {
       uint16_t val = INC_W((cpu->regs.b << 8) + cpu->regs.c);
       cpu->regs.b = val >> 8;
       cpu->regs.c = val;
-      return 10;
+      return 8;
     }
 
     case 0x4: /* INC B */
@@ -328,7 +330,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     case 0x6: /* LD B,d8 */
       cpu->regs.b = mmuReadByte(cpu->mmu, cpu->regs.pc);
       cpu->regs.pc++;
-      return 10;
+      return 8;
 
     case 0x7: /* RLCA */
       cpu->regs.a = RLC(cpu, cpu->regs.a);
@@ -345,14 +347,14 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0xA: /* LD A,(BC) */
       cpu->regs.a = mmuReadByte(cpu->mmu, (cpu->regs.b << 8) + cpu->regs.c);
-      return 10;
+      return 8;
 
     case 0xB: /* DEC BC */
     {
       uint16_t val = DEC_W((cpu->regs.b << 8) + cpu->regs.c);
       cpu->regs.b = val >> 8;
       cpu->regs.c = val;
-      return 10;
+      return 8;
     }
 
     case 0xC: /* INC C */
@@ -366,7 +368,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     case 0xE: /* LD C,d8 */
       cpu->regs.c = mmuReadByte(cpu->mmu, cpu->regs.pc);
       cpu->regs.pc++;
-      return 10;
+      return 8;
 
     case 0xF: /* RRCA */
       cpu->regs.a = RRC(cpu, cpu->regs.a);
@@ -388,14 +390,14 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0x12: /* LD (DE),A */
       mmuWriteByte(cpu->mmu, (cpu->regs.d << 8) + cpu->regs.e, cpu->regs.a);
-      return 10;
+      return 8;
 
     case 0x13: /* INC DE */
     {
       uint16_t val = INC_W((cpu->regs.d << 8) + cpu->regs.e);
       cpu->regs.d = val >> 8;
       cpu->regs.e = val;
-      return 10;
+      return 8;
     }
 
     case 0x14: /* INC D */
@@ -408,10 +410,11 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0x16: /* LD D,d8 */
       cpu->regs.d = mmuReadByte(cpu->mmu, cpu->regs.pc); cpu->regs.pc++;
-      return 10;
+      return 8;
 
     case 0x17: /* RLA */
       cpu->regs.a = RL(cpu, cpu->regs.a);
+      cpuSetFlag(cpu, FLAG_Z, false);
       return 4;
 
     case 0x18: /* JR r8 */
@@ -423,14 +426,14 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0x1A: /* LD A,(DE) */
       cpu->regs.a = mmuReadByte(cpu->mmu, (cpu->regs.d << 8) + cpu->regs.e);
-      return 10;
+      return 8;
 
     case 0x1B: /* DEC DE */
     {
       uint16_t val = DEC_W((cpu->regs.d << 8) + cpu->regs.e);
       cpu->regs.d = val >> 8;
       cpu->regs.e = val;
-      return 10;
+      return 8;
     }
 
     case 0x1C: /* INC E */
@@ -443,10 +446,11 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0x1E: /* LD E,d8 */
       cpu->regs.e = mmuReadByte(cpu->mmu, cpu->regs.pc); cpu->regs.pc++;
-      return 10;
+      return 8;
 
     case 0x1F: /* RRA */
       cpu->regs.a = RR(cpu, cpu->regs.a);
+      cpuSetFlag(cpu, FLAG_Z, false);
       return 4;
 
     case 0x20: /* JR NZ,r8 */
@@ -456,7 +460,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
         return 12;
       }
       cpu->regs.pc++;
-      return 10;
+      return 8;
 
     case 0x21: /* LD HL,d16 */
     {
@@ -469,12 +473,11 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0x22: /* LD (HL+),A */
     {
-      uint16_t val = (cpu->regs.h << 8) + cpu->regs.l;
-      mmuWriteByte(cpu->mmu, val, cpu->regs.a);
-      val = INC_W(val);
-      cpu->regs.h = val >> 8;
-      cpu->regs.l = val;
-      return 10;
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, cpu->regs.a);
+      cpu->regs.h = (++addr) >> 8;
+      cpu->regs.l = addr;
+      return 8;
     }
 
     case 0x23: /* INC HL */
@@ -482,7 +485,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       uint16_t val = INC_W((cpu->regs.h << 8) + cpu->regs.l);
       cpu->regs.h = val >> 8;
       cpu->regs.l = val;
-      return 10;
+      return 8;
     }
 
     case 0x24: /* INC H */
@@ -496,7 +499,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     case 0x26: /* LD H,d8 */
       cpu->regs.h = mmuReadByte(cpu->mmu, cpu->regs.pc);
       cpu->regs.pc++;
-      return 10;
+      return 8;
 
     case 0x27: /* DAA */
     {
@@ -528,19 +531,18 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
         return 12;
       }
       cpu->regs.pc++;
-      return 10;
+      return 8;
 
     case 0x29: /* ADD HL,HL */
       return ADD_WW(cpu, (cpu->regs.h << 8) + cpu->regs.l);
 
     case 0x2A: /* LD A,(HL+) */
     {
-      uint16_t val = (cpu->regs.h << 8) + cpu->regs.l;
-      cpu->regs.a = mmuReadByte(cpu->mmu, val);
-      val = INC_W(val);
-      cpu->regs.h = val >> 8;
-      cpu->regs.l = val;
-      return 10;
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      cpu->regs.a = mmuReadByte(cpu->mmu, addr);
+      cpu->regs.h = (++addr) >> 8;
+      cpu->regs.l = addr;
+      return 8;
     }
 
     case 0x2B: /* DEC HL */
@@ -548,7 +550,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       uint16_t val = DEC_W((cpu->regs.h << 8) + cpu->regs.l);
       cpu->regs.h = val >> 8;
       cpu->regs.l = val;
-      return 10;
+      return 8;
     }
 
     case 0x2C: /* INC L */
@@ -562,7 +564,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     case 0x2E: /* LD L,d8 */
       cpu->regs.l = mmuReadByte(cpu->mmu, cpu->regs.pc);
       cpu->regs.pc++;
-      return 10;
+      return 8;
 
     case 0x2F: /* CPL */
       cpu->regs.a = ~cpu->regs.a;
@@ -577,7 +579,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
         return 12;
       }
       cpu->regs.pc++;
-      return 10;
+      return 8;
 
     case 0x31: /* LD SP,d16 */
       cpu->regs.sp = mmuReadWord(cpu->mmu, cpu->regs.pc);
@@ -586,31 +588,28 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0x32: /* LD (HL-),A */
     {
-      uint16_t val = (cpu->regs.h << 8) + cpu->regs.l;
-      mmuWriteByte(cpu->mmu, val, cpu->regs.a);
-      val = DEC_W(val);
-      cpu->regs.h = val >> 8;
-      cpu->regs.l = val;
-      return 10;
+      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
+      mmuWriteByte(cpu->mmu, addr, cpu->regs.a);
+      cpu->regs.h = (--addr) >> 8;
+      cpu->regs.l = addr;
+      return 8;
     }
 
     case 0x33: /* INC SP */
       cpu->regs.sp = INC_W(cpu->regs.sp);
-      return 10;
+      return 8;
 
     case 0x34: /* INC (HL) */
     {
       uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
-      uint8_t val = INC_B(cpu, mmuReadByte(cpu->mmu, addr));
-      mmuWriteByte(cpu->mmu, addr, val);
+      mmuWriteByte(cpu->mmu, addr, INC_B(cpu, mmuReadByte(cpu->mmu, addr)));
       return 12;
     }
 
     case 0x35: /* DEC (HL) */
     {
       uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
-      uint8_t val = DEC_B(cpu, mmuReadByte(cpu->mmu, addr));
-      mmuWriteByte(cpu->mmu, addr, val);
+      mmuWriteByte(cpu->mmu, addr, DEC_B(cpu, mmuReadByte(cpu->mmu, addr)));
       return 12;
     }
 
@@ -635,7 +634,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
         return 12;
       }
       cpu->regs.pc++;
-      return 10;
+      return 8;
 
     case 0x39: /* ADD HL,SP */
       return ADD_WW(cpu, cpu->regs.sp);
@@ -644,15 +643,14 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     {
       uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
       cpu->regs.a = mmuReadByte(cpu->mmu, addr);
-      addr = INC_W(addr);
-      cpu->regs.h = addr >> 8;
+      cpu->regs.h = (--addr) >> 8;
       cpu->regs.l = addr;
-      return 10;
+      return 8;
     }
 
     case 0x3B: /* DEC SP */
       cpu->regs.sp = DEC_W(cpu->regs.sp);
-      return 10;
+      return 8;
 
     case 0x3C: /* INC A */
       cpu->regs.a = INC_B(cpu, cpu->regs.a);
@@ -665,7 +663,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     case 0x3E: /* LD A,d8 */
       cpu->regs.a = mmuReadByte(cpu->mmu, cpu->regs.pc);
       cpu->regs.pc++;
-      return 10;
+      return 8;
 
     case 0x3F: /* CCF */
       cpuSetFlag(cpu, FLAG_C, !cpuGetFlag(cpu, FLAG_C));
@@ -699,7 +697,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0x46: /* LD B,(HL) */
       cpu->regs.b = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
-      return 10;
+      return 8;
 
     case 0x47: /* LD B,A */
       cpu->regs.b = cpu->regs.a;
@@ -731,7 +729,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0x4E: /* LD C,(HL) */
       cpu->regs.c = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
-      return 10;
+      return 8;
 
     case 0x4F: /* LD C,A */
       cpu->regs.c = cpu->regs.a;
@@ -763,7 +761,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0x56: /* LD D,(HL) */
       cpu->regs.d = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
-      return 10;
+      return 8;
 
     case 0x57: /* LD D,A */
       cpu->regs.d = cpu->regs.a;
@@ -795,7 +793,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0x5E: /* LD E,(HL) */
       cpu->regs.e = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
-      return 10;
+      return 8;
 
     case 0x5F: /* LD E,A */
       cpu->regs.e = cpu->regs.a;
@@ -827,7 +825,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0x66: /* LD H,(HL) */
       cpu->regs.h = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
-      return 10;
+      return 8;
 
     case 0x67: /* LD H,A */
       cpu->regs.h = cpu->regs.a;
@@ -859,7 +857,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0x6E: /* LD L,(HL) */
       cpu->regs.l = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
-      return 10;
+      return 8;
 
     case 0x6F: /* LD L,A */
       cpu->regs.l = cpu->regs.a;
@@ -867,27 +865,27 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0x70: /* LD (HL),B */
       mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.b);
-      return 10;
+      return 8;
 
     case 0x71: /* LD (HL),C */
       mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.c);
-      return 10;
+      return 8;
 
     case 0x72: /* LD (HL),D */
       mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.d);
-      return 10;
+      return 8;
 
     case 0x73: /* LD (HL),E */
       mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.e);
-      return 10;
+      return 8;
 
     case 0x74: /* LD (HL),H */
       mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.h);
-      return 10;
+      return 8;
 
     case 0x75: /* LD (HL),L */
       mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.l);
-      return 10;
+      return 8;
 
     case 0x76: /* HALT */
       cpu->halt = true;
@@ -895,7 +893,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0x77: /* LD (HL),A */
       mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.a);
-      return 10;
+      return 8;
 
     case 0x78: /* LD A,B */
       cpu->regs.a = cpu->regs.b;
@@ -923,7 +921,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0x7E: /* LD A,(HL) */
       cpu->regs.a = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
-      return 10;
+      return 8;
 
     case 0x7F: /* LD A,A */
       cpu->regs.a = cpu->regs.a;
@@ -1126,13 +1124,13 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
         cpu->regs.pc = POP(cpu);
         return 20;
       }
-      return 10;
+      return 8;
 
     case 0xC1: /* POP BC */
     {
-      uint16_t val = POP(cpu);
-      cpu->regs.b = val >> 8;
-      cpu->regs.c = val;
+      uint16_t result = POP(cpu);
+      cpu->regs.b = result >> 8;
+      cpu->regs.c = result;
       return 12;
     }
 
@@ -1178,7 +1176,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
         cpu->regs.pc = POP(cpu);
         return 20;
       }
-      return 10;
+      return 8;
 
     case 0xC9: /* RET */
       cpu->regs.pc = POP(cpu);
@@ -1227,7 +1225,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
         cpu->regs.pc = POP(cpu);
         return 0x20;
       }
-      return 10;
+      return 8;
 
     case 0xD1: /* POP DE */
     {
@@ -1275,7 +1273,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
         cpu->regs.pc = POP(cpu);
         return 20;
       }
-      return 10;
+      return 8;
 
     case 0xD9: /* RETI */
       cpu->regs.pc = POP(cpu);
@@ -1326,7 +1324,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0xE2: /* LD (C),A */
       mmuWriteByte(cpu->mmu, 0xFF00 + cpu->regs.c, cpu->regs.a);
-      return 10;
+      return 8;
 
     case 0xE5: /* PUSH HL */
       PUSH(cpu, (cpu->regs.h << 8) + cpu->regs.l);
@@ -1347,13 +1345,14 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     case 0xE8: /* ADD SP,r8 */
     {
       int8_t op = mmuReadByte(cpu->mmu, cpu->regs.pc);
+      uint16_t result = cpu->regs.sp + op;
 
       cpuSetFlag(cpu, FLAG_Z, 0);
       cpuSetFlag(cpu, FLAG_N, 0);
       cpuSetFlag(cpu, FLAG_H, (cpu->regs.sp & 0xF) + (op & 0xF) > 0xF);
       cpuSetFlag(cpu, FLAG_C, (cpu->regs.sp & 0xFF) + (op & 0xFF) > 0xFF);
 
-      cpu->regs.sp = cpu->regs.sp + op;
+      cpu->regs.sp = result;
       cpu->regs.pc++;
 
       return 16;
@@ -1395,7 +1394,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0xF2: /* LD A,(C) */
       cpu->regs.a = mmuReadByte(cpu->mmu, 0xFF00 + cpu->regs.c);
-      return 10;
+      return 8;
 
     case 0xF3: /* DI */
       cpu->ime = false;
@@ -1420,13 +1419,13 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     case 0xF8: /* LD HL,SP+r8 */
      {
       int8_t op = mmuReadByte(cpu->mmu, cpu->regs.pc);
+      uint16_t result = cpu->regs.sp + op;
 
       cpuSetFlag(cpu, FLAG_Z, 0);
       cpuSetFlag(cpu, FLAG_N, 0);
       cpuSetFlag(cpu, FLAG_H, (cpu->regs.sp & 0xF) + (op & 0xF) > 0xF);
       cpuSetFlag(cpu, FLAG_C, (cpu->regs.sp & 0xFF) + (op & 0xFF) > 0xFF);
 
-      uint16_t result = cpu->regs.sp + op;
       cpu->regs.h = result >> 8;
       cpu->regs.l = result;
       cpu->regs.pc++;
@@ -1436,7 +1435,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0xF9: /* LD SP,HL */
       cpu->regs.sp = (cpu->regs.h << 8) + cpu->regs.l;
-      return 10;
+      return 8;
 
     case 0xFA: /* LD A,(a16) */
       cpu->regs.a = mmuReadByte(cpu->mmu, mmuReadWord(cpu->mmu, cpu->regs.pc));
@@ -1468,27 +1467,27 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
   switch (opcode) {
     case 0x0: /* RLC B */
       cpu->regs.b = RLC(cpu, cpu->regs.b);
-      return 10;
+      return 8;
 
     case 0x1: /* RLC C */
       cpu->regs.c = RLC(cpu, cpu->regs.c);
-      return 10;
+      return 8;
 
     case 0x2: /* RLC D */
       cpu->regs.d = RLC(cpu, cpu->regs.d);
-      return 10;
+      return 8;
 
     case 0x3: /* RLC E */
       cpu->regs.e = RLC(cpu, cpu->regs.e);
-      return 10;
+      return 8;
 
     case 0x4: /* RLC H */
       cpu->regs.h = RLC(cpu, cpu->regs.h);
-      return 10;
+      return 8;
 
     case 0x5: /* RLC L */
       cpu->regs.l = RLC(cpu, cpu->regs.l);
-      return 10;
+      return 8;
 
     case 0x6: /* RLC (HL) */
     {
@@ -1499,31 +1498,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x7: /* RLC A */
       cpu->regs.a = RLC(cpu, cpu->regs.a);
-      return 10;
+      return 8;
 
     case 0x8: /* RRC B */
       cpu->regs.b = RRC(cpu, cpu->regs.b);
-      return 10;
+      return 8;
 
     case 0x9: /* RRC C */
       cpu->regs.c = RRC(cpu, cpu->regs.c);
-      return 10;
+      return 8;
 
     case 0xA: /* RRC D */
       cpu->regs.d = RRC(cpu, cpu->regs.d);
-      return 10;
+      return 8;
 
     case 0xB: /* RRC E */
       cpu->regs.e = RRC(cpu, cpu->regs.e);
-      return 10;
+      return 8;
 
     case 0xC: /* RRC H */
       cpu->regs.h = RRC(cpu, cpu->regs.h);
-      return 10;
+      return 8;
 
     case 0xD: /* RRC L */
       cpu->regs.l = RRC(cpu, cpu->regs.l);
-      return 10;
+      return 8;
 
     case 0xE: /* RRC (HL) */
     {
@@ -1534,31 +1533,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0xF: /* RRC A */
       cpu->regs.a = RRC(cpu, cpu->regs.a);
-      return 10;
+      return 8;
 
     case 0x10: /* RL B */
       cpu->regs.b = RL(cpu, cpu->regs.b);
-      return 10;
+      return 8;
 
     case 0x11: /* RL C */
       cpu->regs.c = RL(cpu, cpu->regs.c);
-      return 10;
+      return 8;
 
     case 0x12: /* RL D */
       cpu->regs.d = RL(cpu, cpu->regs.d);
-      return 10;
+      return 8;
 
     case 0x13: /* RL E */
       cpu->regs.e = RL(cpu, cpu->regs.e);
-      return 10;
+      return 8;
 
     case 0x14: /* RL H */
       cpu->regs.h = RL(cpu, cpu->regs.h);
-      return 10;
+      return 8;
 
     case 0x15: /* RL L */
       cpu->regs.l = RL(cpu, cpu->regs.l);
-      return 10;
+      return 8;
 
     case 0x16: /* RL (HL) */
     {
@@ -1569,31 +1568,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x17: /* RL A */
       cpu->regs.a = RL(cpu, cpu->regs.a);
-      return 10;
+      return 8;
 
     case 0x18: /* RR B */
       cpu->regs.b = RR(cpu, cpu->regs.b);
-      return 10;
+      return 8;
 
     case 0x19: /* RR C */
       cpu->regs.c = RR(cpu, cpu->regs.c);
-      return 10;
+      return 8;
 
     case 0x1A: /* RR D */
       cpu->regs.d = RR(cpu, cpu->regs.d);
-      return 10;
+      return 8;
 
     case 0x1B: /* RR E */
       cpu->regs.e = RR(cpu, cpu->regs.e);
-      return 10;
+      return 8;
 
     case 0x1C: /* RR H */
       cpu->regs.h = RR(cpu, cpu->regs.h);
-      return 10;
+      return 8;
 
     case 0x1D: /* RR L */
       cpu->regs.l = RR(cpu, cpu->regs.l);
-      return 10;
+      return 8;
 
     case 0x1E: /* RR (HL) */
     {
@@ -1604,31 +1603,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x1F: /* RR A */
       cpu->regs.a = RR(cpu, cpu->regs.a);
-      return 10;
+      return 8;
 
     case 0x20: /* SLA B */
       cpu->regs.b = SLA(cpu, cpu->regs.b);
-      return 10;
+      return 8;
 
     case 0x21: /* SLA C */
       cpu->regs.c = SLA(cpu, cpu->regs.c);
-      return 10;
+      return 8;
 
     case 0x22: /* SLA D */
       cpu->regs.d = SLA(cpu, cpu->regs.d);
-      return 10;
+      return 8;
 
     case 0x23: /* SLA E */
       cpu->regs.e = SLA(cpu, cpu->regs.e);
-      return 10;
+      return 8;
 
     case 0x24: /* SLA H */
       cpu->regs.h = SLA(cpu, cpu->regs.h);
-      return 10;
+      return 8;
 
     case 0x25: /* SLA L */
       cpu->regs.l = SLA(cpu, cpu->regs.l);
-      return 10;
+      return 8;
 
     case 0x26: /* SLA (HL) */
     {
@@ -1639,31 +1638,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x27: /* SLA A */
       cpu->regs.a = SLA(cpu, cpu->regs.a);
-      return 10;
+      return 8;
 
     case 0x28: /* SRA B */
       cpu->regs.b = SRA(cpu, cpu->regs.b);
-      return 10;
+      return 8;
 
     case 0x29: /* SRA C */
       cpu->regs.c = SRA(cpu, cpu->regs.c);
-      return 10;
+      return 8;
 
     case 0x2A: /* SRA D */
       cpu->regs.d = SRA(cpu, cpu->regs.d);
-      return 10;
+      return 8;
 
     case 0x2B: /* SRA E */
       cpu->regs.e = SRA(cpu, cpu->regs.e);
-      return 10;
+      return 8;
 
     case 0x2C: /* SRA H */
       cpu->regs.h = SRA(cpu, cpu->regs.h);
-      return 10;
+      return 8;
 
     case 0x2D: /* SRA L */
       cpu->regs.l = SRA(cpu, cpu->regs.l);
-      return 10;
+      return 8;
 
     case 0x2E: /* SRA (HL) */
     {
@@ -1674,31 +1673,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x2F: /* SRA A */
       cpu->regs.a = SRA(cpu, cpu->regs.a);
-      return 10;
+      return 8;
 
     case 0x30: /* SWAP B */
       cpu->regs.b = SWAP(cpu, cpu->regs.b);
-      return 10;
+      return 8;
 
     case 0x31: /* SWAP C */
       cpu->regs.c = SWAP(cpu, cpu->regs.c);
-      return 10;
+      return 8;
 
     case 0x32: /* SWAP D */
       cpu->regs.d = SWAP(cpu, cpu->regs.d);
-      return 10;
+      return 8;
 
     case 0x33: /* SWAP E */
       cpu->regs.e = SWAP(cpu, cpu->regs.e);
-      return 10;
+      return 8;
 
     case 0x34: /* SWAP H */
       cpu->regs.h = SWAP(cpu, cpu->regs.h);
-      return 10;
+      return 8;
 
     case 0x35: /* SWAP L */
       cpu->regs.l = SWAP(cpu, cpu->regs.l);
-      return 10;
+      return 8;
 
     case 0x36: /* SWAP (HL) */
     {
@@ -1709,31 +1708,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x37: /* SWAP A */
       cpu->regs.a = SWAP(cpu, cpu->regs.a);
-      return 10;
+      return 8;
 
     case 0x38: /* SRL B */
       cpu->regs.b = SRL(cpu, cpu->regs.b);
-      return 10;
+      return 8;
 
     case 0x39: /* SRL C */
       cpu->regs.c = SRL(cpu, cpu->regs.c);
-      return 10;
+      return 8;
 
     case 0x3A: /* SRL D */
       cpu->regs.d = SRL(cpu, cpu->regs.d);
-      return 10;
+      return 8;
 
     case 0x3B: /* SRL E */
       cpu->regs.e = SRL(cpu, cpu->regs.e);
-      return 10;
+      return 8;
 
     case 0x3C: /* SRL H */
       cpu->regs.h = SRL(cpu, cpu->regs.h);
-      return 10;
+      return 8;
 
     case 0x3D: /* SRL L */
       cpu->regs.l = SRL(cpu, cpu->regs.l);
-      return 10;
+      return 8;
 
     case 0x3E: /* SRL (HL) */
     {
@@ -1744,31 +1743,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x3F: /* SRL A */
       cpu->regs.a = SRL(cpu, cpu->regs.a);
-      return 10;
+      return 8;
 
     case 0x40: /* BIT 0,B */
       BIT(cpu, cpu->regs.b, 0);
-      return 10;
+      return 8;
 
     case 0x41: /* BIT 0,C */
       BIT(cpu, cpu->regs.c, 0);
-      return 10;
+      return 8;
 
     case 0x42: /* BIT 0,D */
       BIT(cpu, cpu->regs.d, 0);
-      return 10;
+      return 8;
 
     case 0x43: /* BIT 0,E */
       BIT(cpu, cpu->regs.e, 0);
-      return 10;
+      return 8;
 
     case 0x44: /* BIT 0,H */
       BIT(cpu, cpu->regs.h, 0);
-      return 10;
+      return 8;
 
     case 0x45: /* BIT 0,L */
       BIT(cpu, cpu->regs.l, 0);
-      return 10;
+      return 8;
 
     case 0x46: /* BIT 0,(HL) */
     {
@@ -1779,31 +1778,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x47: /* BIT 0,A */
       BIT(cpu, cpu->regs.a, 0);
-      return 10;
+      return 8;
 
     case 0x48: /* BIT 1,B */
       BIT(cpu, cpu->regs.b, 1);
-      return 10;
+      return 8;
 
     case 0x49: /* BIT 1,C */
       BIT(cpu, cpu->regs.c, 1);
-      return 10;
+      return 8;
 
     case 0x4A: /* BIT 1,D */
       BIT(cpu, cpu->regs.d, 1);
-      return 10;
+      return 8;
 
     case 0x4B: /* BIT 1,E */
       BIT(cpu, cpu->regs.e, 1);
-      return 10;
+      return 8;
 
     case 0x4C: /* BIT 1,H */
       BIT(cpu, cpu->regs.h, 1);
-      return 10;
+      return 8;
 
     case 0x4D: /* BIT 1,L */
       BIT(cpu, cpu->regs.l, 1);
-      return 10;
+      return 8;
 
     case 0x4E: /* BIT 1,(HL) */
     {
@@ -1814,31 +1813,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x4F: /* BIT 1,A */
       BIT(cpu, cpu->regs.a, 1);
-      return 10;
+      return 8;
 
     case 0x50: /* BIT 2,B */
       BIT(cpu, cpu->regs.b, 2);
-      return 10;
+      return 8;
 
     case 0x51: /* BIT 2,C */
       BIT(cpu, cpu->regs.c, 2);
-      return 10;
+      return 8;
 
     case 0x52: /* BIT 2,D */
       BIT(cpu, cpu->regs.d, 2);
-      return 10;
+      return 8;
 
     case 0x53: /* BIT 2,E */
       BIT(cpu, cpu->regs.e, 2);
-      return 10;
+      return 8;
 
     case 0x54: /* BIT 2,H */
       BIT(cpu, cpu->regs.h, 2);
-      return 10;
+      return 8;
 
     case 0x55: /* BIT 2,L */
       BIT(cpu, cpu->regs.l, 2);
-      return 10;
+      return 8;
 
     case 0x56: /* BIT 2,(HL) */
     {
@@ -1849,31 +1848,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x57: /* BIT 2,A */
       BIT(cpu, cpu->regs.a, 2);
-      return 10;
+      return 8;
 
     case 0x58: /* BIT 3,B */
       BIT(cpu, cpu->regs.b, 3);
-      return 10;
+      return 8;
 
     case 0x59: /* BIT 3,C */
       BIT(cpu, cpu->regs.c, 3);
-      return 10;
+      return 8;
 
     case 0x5A: /* BIT 3,D */
       BIT(cpu, cpu->regs.d, 3);
-      return 10;
+      return 8;
 
     case 0x5B: /* BIT 3,E */
       BIT(cpu, cpu->regs.e, 3);
-      return 10;
+      return 8;
 
     case 0x5C: /* BIT 3,H */
       BIT(cpu, cpu->regs.h, 3);
-      return 10;
+      return 8;
 
     case 0x5D: /* BIT 3,L */
       BIT(cpu, cpu->regs.l, 3);
-      return 10;
+      return 8;
 
     case 0x5E: /* BIT 3,(HL) */
     {
@@ -1884,31 +1883,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x5F: /* BIT 3,A */
       BIT(cpu, cpu->regs.a, 3);
-      return 10;
+      return 8;
 
     case 0x60: /* BIT 4,B */
       BIT(cpu, cpu->regs.b, 4);
-      return 10;
+      return 8;
 
     case 0x61: /* BIT 4,C */
       BIT(cpu, cpu->regs.c, 4);
-      return 10;
+      return 8;
 
     case 0x62: /* BIT 4,D */
       BIT(cpu, cpu->regs.d, 4);
-      return 10;
+      return 8;
 
     case 0x63: /* BIT 4,E */
       BIT(cpu, cpu->regs.e, 4);
-      return 10;
+      return 8;
 
     case 0x64: /* BIT 4,H */
       BIT(cpu, cpu->regs.h, 4);
-      return 10;
+      return 8;
 
     case 0x65: /* BIT 4,L */
       BIT(cpu, cpu->regs.l, 4);
-      return 10;
+      return 8;
 
     case 0x66: /* BIT 4,(HL) */
     {
@@ -1919,31 +1918,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x67: /* BIT 4,A */
       BIT(cpu, cpu->regs.a, 4);
-      return 10;
+      return 8;
 
     case 0x68: /* BIT 5,B */
       BIT(cpu, cpu->regs.b, 5);
-      return 10;
+      return 8;
 
     case 0x69: /* BIT 5,C */
       BIT(cpu, cpu->regs.c, 5);
-      return 10;
+      return 8;
 
     case 0x6A: /* BIT 5,D */
       BIT(cpu, cpu->regs.d, 5);
-      return 10;
+      return 8;
 
     case 0x6B: /* BIT 5,E */
       BIT(cpu, cpu->regs.e, 5);
-      return 10;
+      return 8;
 
     case 0x6C: /* BIT 5,H */
       BIT(cpu, cpu->regs.h, 5);
-      return 10;
+      return 8;
 
     case 0x6D: /* BIT 5,L */
       BIT(cpu, cpu->regs.l, 5);
-      return 10;
+      return 8;
 
     case 0x6E: /* BIT 5,(HL) */
     {
@@ -1954,31 +1953,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x6F: /* BIT 5,A */
       BIT(cpu, cpu->regs.a, 5);
-      return 10;
+      return 8;
 
     case 0x70: /* BIT 6,B */
       BIT(cpu, cpu->regs.b, 6);
-      return 10;
+      return 8;
 
     case 0x71: /* BIT 6,C */
       BIT(cpu, cpu->regs.c, 6);
-      return 10;
+      return 8;
 
     case 0x72: /* BIT 6,D */
       BIT(cpu, cpu->regs.d, 6);
-      return 10;
+      return 8;
 
     case 0x73: /* BIT 6,E */
       BIT(cpu, cpu->regs.e, 6);
-      return 10;
+      return 8;
 
     case 0x74: /* BIT 6,H */
       BIT(cpu, cpu->regs.h, 6);
-      return 10;
+      return 8;
 
     case 0x75: /* BIT 6,L */
       BIT(cpu, cpu->regs.l, 6);
-      return 10;
+      return 8;
 
     case 0x76: /* BIT 6,(HL) */
     {
@@ -1989,31 +1988,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x77: /* BIT 6,A */
       BIT(cpu, cpu->regs.a, 6);
-      return 10;
+      return 8;
 
     case 0x78: /* BIT 7,B */
       BIT(cpu, cpu->regs.b, 7);
-      return 10;
+      return 8;
 
     case 0x79: /* BIT 7,C */
       BIT(cpu, cpu->regs.c, 7);
-      return 10;
+      return 8;
 
     case 0x7A: /* BIT 7,D */
       BIT(cpu, cpu->regs.d, 7);
-      return 10;
+      return 8;
 
     case 0x7B: /* BIT 7,E */
       BIT(cpu, cpu->regs.e, 7);
-      return 10;
+      return 8;
 
     case 0x7C: /* BIT 7,H */
       BIT(cpu, cpu->regs.h, 7);
-      return 10;
+      return 8;
 
     case 0x7D: /* BIT 7,L */
       BIT(cpu, cpu->regs.l, 7);
-      return 10;
+      return 8;
 
     case 0x7E: /* BIT 7,(HL) */
     {
@@ -2024,31 +2023,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x7F: /* BIT 7,A */
       BIT(cpu, cpu->regs.a, 7);
-      return 10;
+      return 8;
 
     case 0x80: /* RES 0,B */
       cpu->regs.b = RES(cpu->regs.b, 0);
-      return 10;
+      return 8;
 
     case 0x81: /* RES 0,C */
       cpu->regs.c = RES(cpu->regs.c, 0);
-      return 10;
+      return 8;
 
     case 0x82: /* RES 0,D */
       cpu->regs.d = RES(cpu->regs.d, 0);
-      return 10;
+      return 8;
 
     case 0x83: /* RES 0,E */
       cpu->regs.e = RES(cpu->regs.e, 0);
-      return 10;
+      return 8;
 
     case 0x84: /* RES 0,H */
       cpu->regs.h = RES(cpu->regs.h, 0);
-      return 10;
+      return 8;
 
     case 0x85: /* RES 0,L */
       cpu->regs.l = RES(cpu->regs.l, 0);
-      return 10;
+      return 8;
 
     case 0x86: /* RES 0,(HL) */
     {
@@ -2059,31 +2058,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x87: /* RES 0,A */
       cpu->regs.a = RES(cpu->regs.a, 0);
-      return 10;
+      return 8;
 
     case 0x88: /* RES 1,B */
       cpu->regs.b = RES(cpu->regs.b, 1);
-      return 10;
+      return 8;
 
     case 0x89: /* RES 1,C */
       cpu->regs.c = RES(cpu->regs.c, 1);
-      return 10;
+      return 8;
 
     case 0x8A: /* RES 1,D */
       cpu->regs.d = RES(cpu->regs.d, 1);
-      return 10;
+      return 8;
 
     case 0x8B: /* RES 1,E */
       cpu->regs.e = RES(cpu->regs.e, 1);
-      return 10;
+      return 8;
 
     case 0x8C: /* RES 1,H */
       cpu->regs.h = RES(cpu->regs.h, 1);
-      return 10;
+      return 8;
 
     case 0x8D: /* RES 1,L */
       cpu->regs.l = RES(cpu->regs.l, 1);
-      return 10;
+      return 8;
 
     case 0x8E: /* RES 1,(HL) */
     {
@@ -2094,31 +2093,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x8F: /* RES 1,A */
       cpu->regs.a = RES(cpu->regs.a, 1);
-      return 10;
+      return 8;
 
     case 0x90: /* RES 2,B */
       cpu->regs.b = RES(cpu->regs.b, 2);
-      return 10;
+      return 8;
 
     case 0x91: /* RES 2,C */
       cpu->regs.c = RES(cpu->regs.c, 2);
-      return 10;
+      return 8;
 
     case 0x92: /* RES 2,D */
       cpu->regs.d = RES(cpu->regs.d, 2);
-      return 10;
+      return 8;
 
     case 0x93: /* RES 2,E */
       cpu->regs.e = RES(cpu->regs.e, 2);
-      return 10;
+      return 8;
 
     case 0x94: /* RES 2,H */
       cpu->regs.h = RES(cpu->regs.h, 2);
-      return 10;
+      return 8;
 
     case 0x95: /* RES 2,L */
       cpu->regs.l = RES(cpu->regs.l, 2);
-      return 10;
+      return 8;
 
     case 0x96: /* RES 2,(HL) */
     {
@@ -2129,31 +2128,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x97: /* RES 2,A */
       cpu->regs.a = RES(cpu->regs.a, 2);
-      return 10;
+      return 8;
 
     case 0x98: /* RES 3,B */
       cpu->regs.b = RES(cpu->regs.b, 3);
-      return 10;
+      return 8;
 
     case 0x99: /* RES 3,C */
       cpu->regs.c = RES(cpu->regs.c, 3);
-      return 10;
+      return 8;
 
     case 0x9A: /* RES 3,D */
       cpu->regs.d = RES(cpu->regs.d, 3);
-      return 10;
+      return 8;
 
     case 0x9B: /* RES 3,E */
       cpu->regs.e = RES(cpu->regs.e, 3);
-      return 10;
+      return 8;
 
     case 0x9C: /* RES 3,H */
       cpu->regs.h = RES(cpu->regs.h, 3);
-      return 10;
+      return 8;
 
     case 0x9D: /* RES 3,L */
       cpu->regs.l = RES(cpu->regs.l, 3);
-      return 10;
+      return 8;
 
     case 0x9E: /* RES 3,(HL) */
     {
@@ -2164,31 +2163,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0x9F: /* RES 3,A */
       cpu->regs.a = RES(cpu->regs.a, 3);
-      return 10;
+      return 8;
 
     case 0xA0: /* RES 4,B */
       cpu->regs.b = RES(cpu->regs.b, 4);
-      return 10;
+      return 8;
 
     case 0xA1: /* RES 4,C */
       cpu->regs.c = RES(cpu->regs.c, 4);
-      return 10;
+      return 8;
 
     case 0xA2: /* RES 4,D */
       cpu->regs.d = RES(cpu->regs.d, 4);
-      return 10;
+      return 8;
 
     case 0xA3: /* RES 4,E */
       cpu->regs.e = RES(cpu->regs.e, 4);
-      return 10;
+      return 8;
 
     case 0xA4: /* RES 4,H */
       cpu->regs.h = RES(cpu->regs.h, 4);
-      return 10;
+      return 8;
 
     case 0xA5: /* RES 4,L */
       cpu->regs.l = RES(cpu->regs.l, 4);
-      return 10;
+      return 8;
 
     case 0xA6: /* RES 4,(HL) */
     {
@@ -2199,31 +2198,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0xA7: /* RES 4,A */
       cpu->regs.a = RES(cpu->regs.a, 4);
-      return 10;
+      return 8;
 
     case 0xA8: /* RES 5,B */
       cpu->regs.b = RES(cpu->regs.b, 5);
-      return 10;
+      return 8;
 
     case 0xA9: /* RES 5,C */
       cpu->regs.c = RES(cpu->regs.c, 5);
-      return 10;
+      return 8;
 
     case 0xAA: /* RES 5,D */
       cpu->regs.d = RES(cpu->regs.d, 5);
-      return 10;
+      return 8;
 
     case 0xAB: /* RES 5,E */
       cpu->regs.e = RES(cpu->regs.e, 5);
-      return 10;
+      return 8;
 
     case 0xAC: /* RES 5,H */
       cpu->regs.h = RES(cpu->regs.h, 5);
-      return 10;
+      return 8;
 
     case 0xAD: /* RES 5,L */
       cpu->regs.l = RES(cpu->regs.l, 5);
-      return 10;
+      return 8;
 
     case 0xAE: /* RES 5,(HL) */
     {
@@ -2234,31 +2233,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0xAF: /* RES 5,A */
       cpu->regs.a = RES(cpu->regs.a, 5);
-      return 10;
+      return 8;
 
     case 0xB0: /* RES 6,B */
       cpu->regs.b = RES(cpu->regs.b, 6);
-      return 10;
+      return 8;
 
     case 0xB1: /* RES 6,C */
       cpu->regs.c = RES(cpu->regs.c, 6);
-      return 10;
+      return 8;
 
     case 0xB2: /* RES 6,D */
       cpu->regs.d = RES(cpu->regs.d, 6);
-      return 10;
+      return 8;
 
     case 0xB3: /* RES 6,E */
       cpu->regs.e = RES(cpu->regs.e, 6);
-      return 10;
+      return 8;
 
     case 0xB4: /* RES 6,H */
       cpu->regs.h = RES(cpu->regs.h, 6);
-      return 10;
+      return 8;
 
     case 0xB5: /* RES 6,L */
       cpu->regs.l = RES(cpu->regs.l, 6);
-      return 10;
+      return 8;
 
     case 0xB6: /* RES 6,(HL) */
     {
@@ -2269,31 +2268,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0xB7: /* RES 6,A */
       cpu->regs.a = RES(cpu->regs.a, 6);
-      return 10;
+      return 8;
 
     case 0xB8: /* RES 7,B */
       cpu->regs.b = RES(cpu->regs.b, 7);
-      return 10;
+      return 8;
 
     case 0xB9: /* RES 7,C */
       cpu->regs.c = RES(cpu->regs.c, 7);
-      return 10;
+      return 8;
 
     case 0xBA: /* RES 7,D */
       cpu->regs.d = RES(cpu->regs.d, 7);
-      return 10;
+      return 8;
 
     case 0xBB: /* RES 7,E */
       cpu->regs.e = RES(cpu->regs.e, 7);
-      return 10;
+      return 8;
 
     case 0xBC: /* RES 7,H */
       cpu->regs.h = RES(cpu->regs.h, 7);
-      return 10;
+      return 8;
 
     case 0xBD: /* RES 7,L */
       cpu->regs.l = RES(cpu->regs.l, 7);
-      return 10;
+      return 8;
 
     case 0xBE: /* RES 7,(HL) */
     {
@@ -2304,31 +2303,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0xBF: /* RES 7,A */
       cpu->regs.a = RES(cpu->regs.a, 7);
-      return 10;
+      return 8;
 
     case 0xC0: /* SET 0,B */
       cpu->regs.b = SET(cpu->regs.b, 0);
-      return 10;
+      return 8;
 
     case 0xC1: /* SET 0,C */
       cpu->regs.c = SET(cpu->regs.c, 0);
-      return 10;
+      return 8;
 
     case 0xC2: /* SET 0,D */
       cpu->regs.d = SET(cpu->regs.d, 0);
-      return 10;
+      return 8;
 
     case 0xC3: /* SET 0,E */
       cpu->regs.e = SET(cpu->regs.e, 0);
-      return 10;
+      return 8;
 
     case 0xC4: /* SET 0,H */
       cpu->regs.h = SET(cpu->regs.h, 0);
-      return 10;
+      return 8;
 
     case 0xC5: /* SET 0,L */
       cpu->regs.l = SET(cpu->regs.l, 0);
-      return 10;
+      return 8;
 
     case 0xC6: /* SET 0,(HL) */
     {
@@ -2339,31 +2338,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0xC7: /* SET 0,A */
       cpu->regs.a = SET(cpu->regs.a, 0);
-      return 10;
+      return 8;
 
     case 0xC8: /* SET 1,B */
       cpu->regs.b = SET(cpu->regs.b, 1);
-      return 10;
+      return 8;
 
     case 0xC9: /* SET 1,C */
       cpu->regs.c = SET(cpu->regs.c, 1);
-      return 10;
+      return 8;
 
     case 0xCA: /* SET 1,D */
       cpu->regs.d = SET(cpu->regs.d, 1);
-      return 10;
+      return 8;
 
     case 0xCB: /* SET 1,E */
       cpu->regs.e = SET(cpu->regs.e, 1);
-      return 10;
+      return 8;
 
     case 0xCC: /* SET 1,H */
       cpu->regs.h = SET(cpu->regs.h, 1);
-      return 10;
+      return 8;
 
     case 0xCD: /* SET 1,L */
       cpu->regs.l = SET(cpu->regs.l, 1);
-      return 10;
+      return 8;
 
     case 0xCE: /* SET 1,(HL) */
     {
@@ -2374,31 +2373,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0xCF: /* SET 1,A */
       cpu->regs.a = SET(cpu->regs.a, 1);
-      return 10;
+      return 8;
 
     case 0xD0: /* SET 2,B */
       cpu->regs.b = SET(cpu->regs.b, 2);
-      return 10;
+      return 8;
 
     case 0xD1: /* SET 2,C */
       cpu->regs.c = SET(cpu->regs.c, 2);
-      return 10;
+      return 8;
 
     case 0xD2: /* SET 2,D */
       cpu->regs.d = SET(cpu->regs.d, 2);
-      return 10;
+      return 8;
 
     case 0xD3: /* SET 2,E */
       cpu->regs.e = SET(cpu->regs.e, 2);
-      return 10;
+      return 8;
 
     case 0xD4: /* SET 2,H */
       cpu->regs.h = SET(cpu->regs.h, 2);
-      return 10;
+      return 8;
 
     case 0xD5: /* SET 2,L */
       cpu->regs.l = SET(cpu->regs.l, 2);
-      return 10;
+      return 8;
 
     case 0xD6: /* SET 2,(HL) */
     {
@@ -2409,31 +2408,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0xD7: /* SET 2,A */
       cpu->regs.a = SET(cpu->regs.a, 2);
-      return 10;
+      return 8;
 
     case 0xD8: /* SET 3,B */
       cpu->regs.b = SET(cpu->regs.b, 3);
-      return 10;
+      return 8;
 
     case 0xD9: /* SET 3,C */
       cpu->regs.c = SET(cpu->regs.c, 3);
-      return 10;
+      return 8;
 
     case 0xDA: /* SET 3,D */
       cpu->regs.d = SET(cpu->regs.d, 3);
-      return 10;
+      return 8;
 
     case 0xDB: /* SET 3,E */
       cpu->regs.e = SET(cpu->regs.e, 3);
-      return 10;
+      return 8;
 
     case 0xDC: /* SET 3,H */
       cpu->regs.h = SET(cpu->regs.h, 3);
-      return 10;
+      return 8;
 
     case 0xDD: /* SET 3,L */
       cpu->regs.l = SET(cpu->regs.l, 3);
-      return 10;
+      return 8;
 
     case 0xDE: /* SET 3,(HL) */
     {
@@ -2444,31 +2443,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0xDF: /* SET 3,A */
       cpu->regs.a = SET(cpu->regs.a, 3);
-      return 10;
+      return 8;
 
     case 0xE0: /* SET 4,B */
       cpu->regs.b = SET(cpu->regs.b, 4);
-      return 10;
+      return 8;
 
     case 0xE1: /* SET 4,C */
       cpu->regs.c = SET(cpu->regs.c, 4);
-      return 10;
+      return 8;
 
     case 0xE2: /* SET 4,D */
       cpu->regs.d = SET(cpu->regs.d, 4);
-      return 10;
+      return 8;
 
     case 0xE3: /* SET 4,E */
       cpu->regs.e = SET(cpu->regs.e, 4);
-      return 10;
+      return 8;
 
     case 0xE4: /* SET 4,H */
       cpu->regs.h = SET(cpu->regs.h, 4);
-      return 10;
+      return 8;
 
     case 0xE5: /* SET 4,L */
       cpu->regs.l = SET(cpu->regs.l, 4);
-      return 10;
+      return 8;
 
     case 0xE6: /* SET 4,(HL) */
     {
@@ -2479,31 +2478,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0xE7: /* SET 4,A */
       cpu->regs.a = SET(cpu->regs.a, 4);
-      return 10;
+      return 8;
 
     case 0xE8: /* SET 5,B */
       cpu->regs.b = SET(cpu->regs.b, 5);
-      return 10;
+      return 8;
 
     case 0xE9: /* SET 5,C */
       cpu->regs.c = SET(cpu->regs.c, 5);
-      return 10;
+      return 8;
 
     case 0xEA: /* SET 5,D */
       cpu->regs.d = SET(cpu->regs.d, 5);
-      return 10;
+      return 8;
 
     case 0xEB: /* SET 5,E */
       cpu->regs.e = SET(cpu->regs.e, 5);
-      return 10;
+      return 8;
 
     case 0xEC: /* SET 5,H */
       cpu->regs.h = SET(cpu->regs.h, 5);
-      return 10;
+      return 8;
 
     case 0xED: /* SET 5,L */
       cpu->regs.l = SET(cpu->regs.l, 5);
-      return 10;
+      return 8;
 
     case 0xEE: /* SET 5,(HL) */
     {
@@ -2514,31 +2513,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0xEF: /* SET 5,A */
       cpu->regs.a = SET(cpu->regs.a, 5);
-      return 10;
+      return 8;
 
     case 0xF0: /* SET 6,B */
       cpu->regs.b = SET(cpu->regs.b, 6);
-      return 10;
+      return 8;
 
     case 0xF1: /* SET 6,C */
       cpu->regs.c = SET(cpu->regs.c, 6);
-      return 10;
+      return 8;
 
     case 0xF2: /* SET 6,D */
       cpu->regs.d = SET(cpu->regs.d, 6);
-      return 10;
+      return 8;
 
     case 0xF3: /* SET 6,E */
       cpu->regs.e = SET(cpu->regs.e, 6);
-      return 10;
+      return 8;
 
     case 0xF4: /* SET 6,H */
       cpu->regs.h = SET(cpu->regs.h, 6);
-      return 10;
+      return 8;
 
     case 0xF5: /* SET 6,L */
       cpu->regs.l = SET(cpu->regs.l, 6);
-      return 10;
+      return 8;
 
     case 0xF6: /* SET 6,(HL) */
     {
@@ -2549,31 +2548,31 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0xF7: /* SET 6,A */
       cpu->regs.a = SET(cpu->regs.a, 6);
-      return 10;
+      return 8;
 
     case 0xF8: /* SET 7,B */
       cpu->regs.b = SET(cpu->regs.b, 7);
-      return 10;
+      return 8;
 
     case 0xF9: /* SET 7,C */
       cpu->regs.c = SET(cpu->regs.c, 7);
-      return 10;
+      return 8;
 
     case 0xFA: /* SET 7,D */
       cpu->regs.d = SET(cpu->regs.d, 7);
-      return 10;
+      return 8;
 
     case 0xFB: /* SET 7,E */
       cpu->regs.e = SET(cpu->regs.e, 7);
-      return 10;
+      return 8;
 
     case 0xFC: /* SET 7,H */
       cpu->regs.h = SET(cpu->regs.h, 7);
-      return 10;
+      return 8;
 
     case 0xFD: /* SET 7,L */
       cpu->regs.l = SET(cpu->regs.l, 7);
-      return 10;
+      return 8;
 
     case 0xFE: /* SET 7,(HL) */
     {
@@ -2584,7 +2583,7 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
 
     case 0xFF: /* SET 7,A */
       cpu->regs.a = SET(cpu->regs.a, 7);
-      return 10;
+      return 8;
   }
 
   return 0;
