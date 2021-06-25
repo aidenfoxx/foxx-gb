@@ -2,22 +2,21 @@
 #include <stdlib.h>
 #include <GLFW/glfw3.h>
 
-#include "cartridge.h"
 #include "gameboy.h"
 #include "display.h"
 #include "input.h"
 
-static Cartridge cartridge;
 static Gameboy gameboy;
+
 static GLFWwindow *window;
 
-static uint8_t framebuffer[23040][3];
 const static uint8_t pallet[4][3] = {
 	{196, 207, 161},
 	{139, 149, 109},
 	{107, 115, 83},
 	{65, 65, 65}
 };
+static uint8_t framebuffer[23040][3];
 
 void renderFunction(int x, int y, int color)
 {
@@ -52,8 +51,8 @@ void drawFunction()
 	glBindTexture(GL_TEXTURE_2D, texture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 160, 144, 0, GL_RGB, GL_UNSIGNED_BYTE, framebuffer);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	/**
 	 * Define and draw texture coordinates.
@@ -147,6 +146,32 @@ void handleInput(GLFWwindow *window, int key, int scancode, int action, int mods
 	}
 }
 
+size_t readRom(const char *path, uint8_t **romData)
+{
+  FILE *file = fopen(path, "rb");
+
+  if (file == NULL) {
+    return 0;
+  }
+
+  fseek(file, 0, SEEK_END);
+  size_t length = ftell(file);
+  fseek(file, 0, SEEK_SET);
+
+  uint8_t *buffer = malloc(length * sizeof(uint8_t));
+
+  if (fread(buffer, sizeof(uint8_t), length, file) == length) {
+    *romData = buffer;
+    fclose(file);
+    return length;
+  }
+
+  fclose(file);
+  free(buffer);
+
+  return 0;
+}
+
 int main(int argc, const char* argv[])
 {
 	/**
@@ -157,9 +182,12 @@ int main(int argc, const char* argv[])
 		return -1;
 	}
 
-	printf("EVENT: Loading cartridge...\n");
+	printf("EVENT: Loading rom data...\n");
 
-	if (cartridgeInit(&cartridge, argv[1])) {
+	uint8_t *romData;
+	size_t romSize = readRom(argv[1], &romData);
+
+	if (!romSize) {
 		printf("ERROR: Failed to read rom file.\n");
 		return -1;
 	}
@@ -169,7 +197,8 @@ int main(int argc, const char* argv[])
 	 */
 	printf("EVENT: Initializing gameboy...\n");
 
-	gameboyInit(&gameboy, &cartridge);
+	gameboyInit(&gameboy, romData, romSize);
+	free(romData);
 
 	/**
 	 * Initialize GLFW
@@ -179,7 +208,7 @@ int main(int argc, const char* argv[])
 		return -1;
 	}
 
-	window = glfwCreateWindow(160, 144, "FoxxGB", NULL, NULL);
+	window = glfwCreateWindow(160 * 2, 144 * 2, "FoxxGB", NULL, NULL);
 
 	if (!window) {
 		printf("ERROR: Failed to create application window.\n");

@@ -34,13 +34,8 @@ void displayStep(Display *display, unsigned cycles)
 				/**
 				 * Handle DMA request
 				 */
-				uint8_t dma = mmuReadByte(display->mmu, 0xff46);
-
-				if (dma) {
-					for (int i = 0; i < 160; i++) {
-						mmuWriteByte(display->mmu, 0xFE00 + i, mmuReadByte(display->mmu, (dma * 256) + i));
-					}
-					mmuWriteByte(display->mmu, 0xff46, 0);
+				if (mmuReadByte(display->mmu, 0xFF46)) { // 0xFF46 = DMA
+					mmuTransferDMA(display->mmu);
 				}
 
 				if (display->scanline == 144) {
@@ -101,7 +96,6 @@ void displayStep(Display *display, unsigned cycles)
 	}
 }
 
-/* https://github.com/drhelius/Gearboy/blob/master/src/Video.cpp https://gbdev.io/pandocs/STAT.html */
 void displayWriteLy(Display *display)
 {
 	uint8_t lycFlag = display->scanline == mmuReadByte(display->mmu, 0xFF45);
@@ -114,7 +108,7 @@ void displayWriteLy(Display *display)
 	}
 
 	mmuWriteByte(display->mmu, 0xFF44, display->scanline); /* 0xFF44 = LY */
-	mmuWriteByte(display->mmu, 0xFF41, (mmuReadByte(display->mmu, 0xFF41) & 0xFB) | (lycFlag << 2)); /* 0xFF41 = STAT */
+	mmuWriteByte(display->mmu, 0xFF41, (mmuReadByte(display->mmu, 0xFF41) & 0xFB) | (lycFlag << 2)); // 0xFF41 = STAT
 }
 
 void displayWriteMode(Display *display)
@@ -126,7 +120,7 @@ void displayWriteMode(Display *display)
 		mmuWriteByte(display->mmu, 0xFF0F, mmuReadByte(display->mmu, 0xFF0F) | 0x2);
 	}
 
-	mmuWriteByte(display->mmu, 0xFF41, (mmuReadByte(display->mmu, 0xFF41) & 0xFC) | display->mode); /* 0xFF41 = STAT */
+	mmuWriteByte(display->mmu, 0xFF41, (mmuReadByte(display->mmu, 0xFF41) & 0xFC) | display->mode); // 0xFF41 = STAT
 }
 
 void displayRender(Display *display)
@@ -140,8 +134,8 @@ void displayRender(Display *display)
 		uint16_t mapAddress = lcdc & 0x8 ? 0x9C00 : 0x9800;
 		uint16_t dataAddress = lcdc & 0x10 ? 0x8000 : 0x8800;
 
-		uint8_t scrollX = mmuReadByte(display->mmu, 0xFF43); /* 0xFF43 = Scroll position X */
-		uint8_t scrollY = mmuReadByte(display->mmu, 0xFF42); /* 0xFF42 = Scroll position Y */
+		uint8_t scrollX = mmuReadByte(display->mmu, 0xFF43); // 0xFF43 = Scroll position X
+		uint8_t scrollY = mmuReadByte(display->mmu, 0xFF42); // 0xFF42 = Scroll position Y
 
 		uint8_t tileY = scrollY + display->scanline;
 		uint8_t tileRow = tileY % 8;
@@ -150,7 +144,7 @@ void displayRender(Display *display)
 			uint8_t tileX = scrollX + x;
 			uint8_t tileColumn = tileX % 8;
 			uint8_t tileIndex = mmuReadByte(display->mmu, mapAddress + (tileX / 8) + (tileY / 8) * 32);
-			tileIndex += dataAddress == 0x8800 ? 128 : 0; /* Set signed addressing */
+			tileIndex += dataAddress == 0x8800 ? 128 : 0; // Set signed addressing
 
 			/**
 			 * 16 Bytes in a tile

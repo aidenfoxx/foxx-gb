@@ -1,7 +1,6 @@
 #ifndef GAMEBOY_H
 #define GAMEBOY_H
 
-#include "cartridge.h"
 #include "cpu.h"
 #include "mmu.h"
 #include "timer.h"
@@ -16,7 +15,7 @@ typedef struct {
 	Input input;
 } Gameboy;
 
-void gameboyInit(Gameboy*, Cartridge*);
+void gameboyInit(Gameboy*, uint8_t*, size_t);
 void gameboyStep(Gameboy*);
 
 #endif

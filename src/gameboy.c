@@ -1,8 +1,8 @@
 #include "gameboy.h"
 
-void gameboyInit(Gameboy *gameboy, Cartridge *cartridge)
+void gameboyInit(Gameboy *gameboy, uint8_t *romData, size_t romSize)
 {
-	mmuInit(&gameboy->mmu, cartridge);
+	mmuInit(&gameboy->mmu, romData, romSize);
 	cpuInit(&gameboy->cpu, &gameboy->mmu);
 	timerInit(&gameboy->timer, &gameboy->mmu);
 	displayInit(&gameboy->display, &gameboy->mmu);

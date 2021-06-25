@@ -23,53 +23,39 @@ unsigned cpuStep(CPU *cpu)
 	uint8_t intrFlag = mmuReadByte(cpu->mmu, 0xFF0F);
 
 	if (cpu->ime && intrEnabled && intrFlag) {
-		uint8_t interrupt = intrEnabled & intrFlag;
+		uint8_t interrupt = (intrEnabled & intrFlag) & 0x1F;
 
 		if (interrupt) {
+			cycles += 16;
+
 			cpu->ime = false;
 			cpu->halt = false;
+			cpu->stop = false;
+			cpu->regs.sp -= 2;
 
-			if (interrupt & 0x1) { /* Vblank */
+			mmuWriteWord(cpu->mmu, cpu->regs.sp, cpu->regs.pc);
+
+			if (interrupt & 0x1) { // Vblank
 				mmuWriteByte(cpu->mmu, 0xFF0F, intrFlag & 0xFE);
-				cpu->regs.sp -= 2;
-				mmuWriteWord(cpu->mmu, cpu->regs.sp, cpu->regs.pc);
 				cpu->regs.pc = 0x40;
-				cycles += 16;
-			}
-
-			if (interrupt & 0x2) { /* Stat */
+			} else if (interrupt & 0x2) { // Stat
 				mmuWriteByte(cpu->mmu, 0xFF0F, intrFlag & 0xFD);
-				cpu->regs.sp -= 2;
-				mmuWriteWord(cpu->mmu, cpu->regs.sp, cpu->regs.pc);
 				cpu->regs.pc = 0x48;
-				cycles += 16;
-			}
-
-			if (interrupt & 0x4) { /* Timer */
+			} else if (interrupt & 0x4) { // Timer
 				mmuWriteByte(cpu->mmu, 0xFF0F, intrFlag & 0xFB);
-				cpu->regs.sp -= 2;
-				mmuWriteWord(cpu->mmu, cpu->regs.sp, cpu->regs.pc);
 				cpu->regs.pc = 0x50;
-				cycles += 16;
-			}
-
-			if (interrupt & 0x8) { /* Serial */
+			} else if (interrupt & 0x8) { // Serial
 				mmuWriteByte(cpu->mmu, 0xFF0F, intrFlag & 0xF7);
-				cpu->regs.sp -= 2;
-				mmuWriteWord(cpu->mmu, cpu->regs.sp, cpu->regs.pc);
 				cpu->regs.pc = 0x58;
-				cycles += 16;
-			}
-
-			if (interrupt & 0x10) { /* Joypad */
+			} else if (interrupt & 0x10) { // Joypad
 				mmuWriteByte(cpu->mmu, 0xFF0F, intrFlag & 0xEF);
-				cpu->regs.sp -= 2;
-				mmuWriteWord(cpu->mmu, cpu->regs.sp, cpu->regs.pc);
 				cpu->regs.pc = 0x60;
-				cpu->stop = false;
-				cycles += 16;
 			}
 		}
+	}
+
+	if (cpu->halt || cpu->stop) {
+		return 1;
 	}
 
 	/**
@@ -83,13 +69,11 @@ unsigned cpuStep(CPU *cpu)
 	uint8_t opcode = mmuReadByte(cpu->mmu, cpu->regs.pc);
 	cpu->regs.pc++;
 
-	if (!cpu->halt && !cpu->stop) {
-		if (cpu->cb) {
-			cycles += cpuOpcodeCB(cpu, opcode);
-			cpu->cb = false;
-		} else {
-			cycles += cpuOpcode(cpu, opcode);
-		}
+	if (cpu->cb) {
+		cpu->cb = false;
+		cycles += cpuOpcodeCB(cpu, opcode);
+	} else {
+		cycles += cpuOpcode(cpu, opcode);
 	}
 
 	return cycles;
