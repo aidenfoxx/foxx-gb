@@ -14,7 +14,7 @@ void gameboyInit(Gameboy *gameboy, uint8_t *romData, size_t romSize)
 
 void gameboyStep(Gameboy *gameboy)
 {
-	// if (gameboy->cpu.regs.pc == 0xC2EC) debug = 1;
+	// if (gameboy->cpu.regs.pc == 0xC4AC) debug = 1;
 
 	if (debug) {
 		debugCPU(&gameboy->cpu, &gameboy->mmu);

@@ -28,7 +28,6 @@ unsigned cpuStep(CPU *cpu)
 
 	if (interrupt) {
 		cpu->halt = false;
-		cpu->stop = false;
 
 		if (cpu->ime) {
 			cycles += 16;
@@ -57,7 +56,7 @@ unsigned cpuStep(CPU *cpu)
 		}
 	}
 
-	if (cpu->halt || cpu->stop) {
+	if (cpu->halt) {
 		return 1;
 	}
 
@@ -69,17 +68,7 @@ unsigned cpuStep(CPU *cpu)
 		cpu->ime = true;
 	}
 
-	uint8_t opcode = mmuReadByte(cpu->mmu, cpu->regs.pc);
-	cpu->regs.pc++;
-
-	if (cpu->cb) {
-		cpu->cb = false;
-		cycles += cpuOpcodeCB(cpu, opcode);
-	} else {
-		cycles += cpuOpcode(cpu, opcode);
-	}
-
-	return cycles;
+	return cpuExec(cpu) + cycles;
 }
 
 unsigned cpuGetFlag(CPU *cpu, unsigned flag)
