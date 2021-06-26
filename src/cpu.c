@@ -7,13 +7,16 @@ void cpuInit(CPU *cpu, MMU *mmu)
 
 	/**
 	 * Initial CPU state
+	 * http://bgb.bircd.org/pandocs.htm#powerupsequence
 	 */
 	cpu->regs.a = 0x1; cpu->regs.f = 0xB0;
 	cpu->regs.b = 0x0; cpu->regs.c = 0x13;
 	cpu->regs.d = 0x0; cpu->regs.e = 0xD8;
 	cpu->regs.h = 0x1; cpu->regs.l = 0x4D;
-	cpu->regs.sp = 0xFFFe;
+	cpu->regs.sp = 0xFFFE;
 	cpu->regs.pc = 0x100;
+
+	mmuWriteByte(mmu, 0xFF40, 0x91); // 0xFF40 = LCDC
 }
 
 unsigned cpuStep(CPU *cpu)
@@ -21,16 +24,16 @@ unsigned cpuStep(CPU *cpu)
 	unsigned cycles = 0;
 	uint8_t intrEnabled = mmuReadByte(cpu->mmu, 0xFFFF);
 	uint8_t intrFlag = mmuReadByte(cpu->mmu, 0xFF0F);
+	uint8_t interrupt = (intrEnabled & intrFlag) & 0x1F;
 
-	if (cpu->ime && intrEnabled && intrFlag) {
-		uint8_t interrupt = (intrEnabled & intrFlag) & 0x1F;
+	if (interrupt) {
+		cpu->halt = false;
+		cpu->stop = false;
 
-		if (interrupt) {
+		if (cpu->ime) {
 			cycles += 16;
 
 			cpu->ime = false;
-			cpu->halt = false;
-			cpu->stop = false;
 			cpu->regs.sp -= 2;
 
 			mmuWriteWord(cpu->mmu, cpu->regs.sp, cpu->regs.pc);

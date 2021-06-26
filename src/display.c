@@ -44,9 +44,7 @@ void displayStep(Display *display, unsigned cycles)
 					/**
 					 * Set vblank interrupt flag
 					 */
-					if (mmuReadByte(display->mmu, 0xFFFF) & 0x1) {
-						mmuWriteByte(display->mmu, 0xFF0F, mmuReadByte(display->mmu, 0xFF0F) | 0x1);
-					}
+					mmuWriteByte(display->mmu, 0xFF0F, mmuReadByte(display->mmu, 0xFF0F) | 0x1);
 
 					if (display->draw) {
 						display->draw();
@@ -103,7 +101,7 @@ void displayWriteLy(Display *display)
 	/**
 	* Set stat interrupt flag
 	*/
-	if (lycFlag && mmuReadByte(display->mmu, 0xFF41) & 0x40 && mmuReadByte(display->mmu, 0xFFFF) & 0x2) {
+	if (lycFlag && mmuReadByte(display->mmu, 0xFF41) & 0x40) {
 		mmuWriteByte(display->mmu, 0xFF0F, mmuReadByte(display->mmu, 0xFF0F) | 0x2);
 	}
 
@@ -116,7 +114,7 @@ void displayWriteMode(Display *display)
 	/**
 	* Set stat interrupt flag
 	*/
-	if (mmuReadByte(display->mmu, 0xFF41) & (0x8 << display->mode) && mmuReadByte(display->mmu, 0xFFFF) & 0x2) {
+	if (mmuReadByte(display->mmu, 0xFF41) & (0x8 << display->mode)) {
 		mmuWriteByte(display->mmu, 0xFF0F, mmuReadByte(display->mmu, 0xFF0F) | 0x2);
 	}
 

@@ -1,6 +1,7 @@
 #ifndef OPCODE_H
 #define OPCODE_H
 
+#include <stdio.h>
 #include <stdint.h>
 
 #include "cpu.h"

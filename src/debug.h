@@ -6,8 +6,6 @@
 #include "cpu.h"
 #include "mmu.h"
 
-void debugCPU(CPU*, MMU*, uint8_t);
-char *debugCPUOpcode(uint8_t);
-char *debugCPUOpcodeCB(uint8_t);
+void debugCPU(CPU*, MMU*);
 
 #endif

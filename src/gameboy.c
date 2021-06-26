@@ -1,4 +1,7 @@
 #include "gameboy.h"
+#include "debug.h"
+
+static uint8_t debug = 0;
 
 void gameboyInit(Gameboy *gameboy, uint8_t *romData, size_t romSize)
 {
@@ -11,6 +14,13 @@ void gameboyInit(Gameboy *gameboy, uint8_t *romData, size_t romSize)
 
 void gameboyStep(Gameboy *gameboy)
 {
+	// if (gameboy->cpu.regs.pc == 0xC2EC) debug = 1;
+
+	if (debug) {
+		debugCPU(&gameboy->cpu, &gameboy->mmu);
+	}
+
+
 	unsigned cycles = cpuStep(&gameboy->cpu);
 
 	inputStep(&gameboy->input);

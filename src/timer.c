@@ -43,8 +43,6 @@ void timerStep(Timer *timer, unsigned cycles)
 		/**
 		 * Set timer interrupt flag
 		 */
-		if (mmuReadByte(timer->mmu, 0xFFFF) & 0x4) {
-			mmuWriteByte(timer->mmu, 0xFF0F, mmuReadByte(timer->mmu, 0xFF0F) | 0x4);
-		}
+		mmuWriteByte(timer->mmu, 0xFF0F, mmuReadByte(timer->mmu, 0xFF0F) | 0x4);
 	}
 }

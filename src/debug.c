@@ -1,28 +1,39 @@
 #include "debug.h"
 
-void debugCPU(CPU *cpu, MMU *mmu, uint8_t opcode)
+static const char *debugCPUOpcode(uint8_t);
+static const char *debugCPUOpcodeCB(uint8_t);
+
+/**
+ * https://www.reddit.com/r/EmuDev/comments/7zx1om/gb_value_of_interrupt_master_enable_ime_at_startup/
+ */
+void debugCPU(CPU *cpu, MMU *mmu)
 {
+	uint8_t opcode = mmuReadByte(mmu, cpu->regs.pc);
+
 	printf("\n");
-	printf("%x: OPERATION: %x (%s)\n", cpu->regs.pc, opcode, !cpu->cb ? debugCPUOpcode(opcode) : debugCPUOpcodeCB(opcode));
+	printf("%X: OPERATION: %X (%s)\n", cpu->regs.pc, opcode, !cpu->cb ? debugCPUOpcode(opcode) : debugCPUOpcodeCB(opcode));
 	printf("\n");
-	printf("AF: %x\n", (cpu->regs.a << 8) + cpu->regs.f);
-	printf("BC: %x\n", (cpu->regs.b << 8) + cpu->regs.c);
-	printf("DE: %x\n", (cpu->regs.d << 8) + cpu->regs.e);
-	printf("HL: %x\n", (cpu->regs.h << 8) + cpu->regs.l);
-	printf("SP: %x\n", cpu->regs.sp);
-	printf("PC: %x\n", cpu->regs.pc);
+	printf("AF: %04X\n", (cpu->regs.a << 8) + cpu->regs.f);
+	printf("BC: %04X\n", (cpu->regs.b << 8) + cpu->regs.c);
+	printf("DE: %04X\n", (cpu->regs.d << 8) + cpu->regs.e);
+	printf("HL: %04X\n", (cpu->regs.h << 8) + cpu->regs.l);
+	printf("SP: %04X\n", cpu->regs.sp);
+	printf("PC: %04X\n", cpu->regs.pc);
 	printf("\n");
-	printf("EI: %i ", cpu->ei);
-	printf("IME: %i\n", cpu->ime);
-	printf("IE: %i ", mmuReadByte(mmu, 0x0FFFF));
-	printf("IF: %i\n", mmuReadByte(mmu, 0x0FF0F));
-	printf("CB: %i\n", cpu->cb);
-	printf("HALT: %i\n", cpu->halt);
-	printf("STOP: %i\n", cpu->stop);
+	printf("EI: %u ", cpu->ei);
+	printf("IME: %u\n", cpu->ime);
+	printf("CB: %u\n", cpu->cb);
+	printf("HALT: %u\n", cpu->halt);
+	printf("STOP: %u\n", cpu->stop);
+	printf("IE: %02X ", mmuReadByte(mmu, 0xFFFF));
+	printf("IF: %02X\n", mmuReadByte(mmu, 0xFF0F));
+	printf("LCDC: %02X\n", mmuReadByte(mmu, 0xFF40));
+	printf("STAT: %02X\n", mmuReadByte(mmu, 0xFF41));
+	printf("LY: %u\n", mmuReadByte(mmu, 0xFF44));
 	getchar();
 }
 
-char *debugCPUOpcode(uint8_t opcode)
+const char *debugCPUOpcode(uint8_t opcode)
 {
 	if (opcode == 0x00) return "NOP";
 	else if (opcode == 0x01) return "LD BC,d16";
@@ -273,7 +284,7 @@ char *debugCPUOpcode(uint8_t opcode)
 	return "";
 }
 
-char *debugCPUOpcodeCB(uint8_t opcode)
+const char *debugCPUOpcodeCB(uint8_t opcode)
 {
 	if (opcode == 0x00) return "RLC B";
 	else if (opcode == 0x01) return "RLC C";

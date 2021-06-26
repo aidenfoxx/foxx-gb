@@ -59,9 +59,7 @@ void inputTrigger(Input *input, unsigned button)
 	/**
 	 * Set input interrupt flag
 	 */
-	if (mmuReadByte(input->mmu, 0xFFFF) & 0x10) {
-		mmuWriteByte(input->mmu, 0xFF0F, mmuReadByte(input->mmu, 0xFF0F) | 0x10);
-	}
+	mmuWriteByte(input->mmu, 0xFF0F, mmuReadByte(input->mmu, 0xFF0F) | 0x10);
 }
 
 void inputRelease(Input *input, unsigned button)
