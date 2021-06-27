@@ -3,6 +3,266 @@
 static uint8_t cpuOpcode(CPU*, uint8_t);
 static uint8_t cpuOpcodeCB(CPU*, uint8_t);
 
+/**
+ * Operations
+ */
+inline static uint8_t NOP()
+{
+  return 4;
+}
+
+inline static uint8_t HALT(CPU *cpu)
+{
+  cpu->halt = true;
+  return 4;
+}
+
+static uint8_t ADD_WW(CPU *cpu, uint16_t op)
+{
+  uint16_t hl = (cpu->regs.h << 8) + cpu->regs.l;
+  uint32_t result = hl + op;
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, (hl & 0xFFF) + (op & 0xFFF) > 0xFFF);
+  cpuSetFlag(cpu, FLAG_C, result > 0xFFFF);
+  cpu->regs.h = result >> 8;
+  cpu->regs.l = result;
+  return 8;
+}
+
+static uint8_t ADD(CPU *cpu, uint8_t op, uint8_t carry)
+{
+  uint16_t result = cpu->regs.a + op + carry;
+  cpuSetFlag(cpu, FLAG_Z, !(result & 0xFF));
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, (cpu->regs.a & 0xF) + (op & 0xF) + carry > 0xF);
+  cpuSetFlag(cpu, FLAG_C, result > 0xFF);
+  cpu->regs.a = result;
+  return 4;
+}
+
+
+static uint8_t SUB(CPU *cpu, uint8_t op, uint8_t carry)
+{
+  int16_t result = cpu->regs.a - op - carry;
+  cpuSetFlag(cpu, FLAG_Z, !(result & 0xFF));
+  cpuSetFlag(cpu, FLAG_N, 1);
+  cpuSetFlag(cpu, FLAG_H, (cpu->regs.a & 0xF) - (op & 0xF) - carry < 0);
+  cpuSetFlag(cpu, FLAG_C, result < 0);
+  cpu->regs.a = result;
+  return 4;
+}
+
+static uint8_t CP(CPU *cpu, uint8_t op)
+{
+  int16_t result = cpu->regs.a - op;
+
+  cpuSetFlag(cpu, FLAG_Z, !(result & 0xFF));
+  cpuSetFlag(cpu, FLAG_N, 1);
+  cpuSetFlag(cpu, FLAG_H, (cpu->regs.a & 0xF) - (op & 0xF) < 0);
+  cpuSetFlag(cpu, FLAG_C, result < 0);
+  return 4;
+}
+
+/* TODO: Do these after macro. */
+static uint8_t INC(CPU *cpu, uint8_t op)
+{
+  cpuSetFlag(cpu, FLAG_Z, !(++op));
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, !(op & 0xF));
+  return op;
+}
+
+static uint16_t INC_W(uint16_t op)
+{
+  return ++op;
+}
+
+static uint8_t DEC(CPU *cpu, uint8_t op)
+{
+  uint8_t result = op - 1;
+
+  cpuSetFlag(cpu, FLAG_Z, !result);
+  cpuSetFlag(cpu, FLAG_N, 1);
+  cpuSetFlag(cpu, FLAG_H, (result & 0xF) == 0xF);
+  return result;
+}
+
+static uint16_t DEC_W(uint16_t op)
+{
+  return --op;
+}
+
+static uint8_t AND(CPU *cpu, uint8_t op)
+{
+  cpu->regs.a &= op;
+  cpuSetFlag(cpu, FLAG_Z, !cpu->regs.a);
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, 1);
+  cpuSetFlag(cpu, FLAG_C, 0);
+  return 4;
+}
+
+static uint8_t OR(CPU *cpu, uint8_t op)
+{
+  cpu->regs.a |= op;
+  cpuSetFlag(cpu, FLAG_Z, !cpu->regs.a);
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, 0);
+  cpuSetFlag(cpu, FLAG_C, 0);
+  return 4;
+}
+
+static uint8_t XOR(CPU *cpu, uint8_t op)
+{
+  cpu->regs.a ^= op;
+  cpuSetFlag(cpu, FLAG_Z, !cpu->regs.a);
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, 0);
+  cpuSetFlag(cpu, FLAG_C, 0);
+  return 4;
+}
+
+static void PUSH(CPU *cpu, uint16_t val)
+{
+  cpu->regs.sp -= 2;
+  mmuWriteWord(cpu->mmu, cpu->regs.sp, val);
+}
+
+static uint16_t POP(CPU *cpu)
+{
+  uint16_t result = mmuReadWord(cpu->mmu, cpu->regs.sp);
+  cpu->regs.sp += 2;
+  return result;
+}
+
+static uint8_t SWAP(CPU *cpu, uint8_t a)
+{
+  uint8_t result = (a >> 4) | (a << 4);
+  cpuSetFlag(cpu, FLAG_Z, !result);
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, 0);
+  cpuSetFlag(cpu, FLAG_C, 0);
+  return result;
+}
+
+static uint8_t RLC(CPU *cpu, uint8_t a)
+{
+  uint8_t r = (a & 0x80) >> 7;
+  cpuSetFlag(cpu, FLAG_C, r);
+  a = (a << 1) + r;
+  cpuSetFlag(cpu, FLAG_Z, !a);
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, 0);
+  return a;
+}
+
+static uint8_t RL(CPU *cpu, uint8_t a)
+{
+  uint8_t c = cpuGetFlag(cpu, FLAG_C);
+  cpuSetFlag(cpu, FLAG_C, (a & 0x80) >> 7);
+  a = (a << 1) + c;
+  cpuSetFlag(cpu, FLAG_Z, !a);
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, 0);
+  return a;
+}
+
+static uint8_t RRC(CPU *cpu, uint8_t a)
+{
+  uint8_t r = a & 0x1; cpuSetFlag(cpu, FLAG_C, r);
+  a = (a >> 1) + (r << 7);
+  cpuSetFlag(cpu, FLAG_Z, !a);
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, 0);
+  return a;
+}
+
+static uint8_t RR(CPU *cpu, uint8_t a)
+{
+  uint8_t c = cpuGetFlag(cpu, FLAG_C);
+  cpuSetFlag(cpu, FLAG_C, a & 0x1); a = (a >> 1) + (c << 7);
+  cpuSetFlag(cpu, FLAG_Z, !a);
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, 0);
+  return a;
+}
+
+static uint8_t SLA(CPU *cpu, uint8_t a)
+{
+  cpuSetFlag(cpu, FLAG_C, (a & 0x80) >> 7);
+  a <<= 1;
+  cpuSetFlag(cpu, FLAG_Z, !a);
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, 0);
+  return a;
+}
+
+static uint8_t SRA(CPU *cpu, uint8_t a)
+{
+  cpuSetFlag(cpu, FLAG_C, a & 0x1);
+  a >>= 1;
+  a |= ((a & 0x40) << 1);
+  cpuSetFlag(cpu, FLAG_Z, !a);
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, 0);
+  return a;
+}
+
+static uint8_t SRL(CPU *cpu, uint8_t a)
+{
+  cpuSetFlag(cpu, FLAG_C, a & 0x1);
+  a >>= 1;
+  cpuSetFlag(cpu, FLAG_Z, !a);
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, 0);
+
+  return a;
+}
+
+static void BIT(CPU *cpu, uint8_t a, uint8_t b) {
+  cpuSetFlag(cpu, FLAG_Z, !(a & (1 << b)));
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, 1);
+}
+
+static uint8_t SET(uint8_t a, uint8_t b)
+{
+  return a | (1 << b);
+}
+
+static uint8_t RES(uint8_t a, uint8_t b)
+{
+  return a & ~(1 << b);
+}
+
+static uint16_t JR(uint16_t pc, uint8_t a)
+{
+  if ((a & 0x80) == 0x80) {
+    a = ~(a - 0x1);
+    return pc - a;
+  }
+  return pc + a;
+}
+
+static uint8_t SCF(CPU *cpu)
+{
+  cpuSetFlag(cpu, FLAG_C, 1);
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, 0);
+  return 4;
+}
+
+static uint8_t CCF(CPU *cpu)
+{
+  cpuSetFlag(cpu, FLAG_C, !cpuGetFlag(cpu, FLAG_C));
+  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_H, 0);
+  return 4;
+}
+
+/**
+ * Operation definitions
+ */
 #define DEF_LD_B_B(A, B)\
 static inline uint8_t LD_##A##_##B(CPU *cpu)\
 {\
@@ -88,308 +348,89 @@ DEF_LD_B_B(a, h)
 DEF_LD_B_B(a, l)
 DEF_LD_B_P(a, h, l)
 
-inline static uint8_t NOP()
-{
-  return 4;
+#define DEF_ADD_B(A)\
+static inline uint8_t ADD_##A(CPU *cpu)\
+{\
+  return ADD(cpu, cpu->regs.A, 0);\
 }
 
-inline static uint8_t HALT(CPU *cpu)
-{
-  cpu->halt = true;
-  return 4;
+#define DEF_ADD_P(A, B)\
+static inline uint8_t ADD_##A##B(CPU *cpu)\
+{\
+  return ADD(cpu, mmuReadByte(cpu->mmu, (cpu->regs.A << 8) + cpu->regs.B), 0) + 4;\
 }
 
-/**
- * Arithmetic Operations
- */
-inline static uint8_t ADD_WW(CPU *cpu, uint16_t op)
-{
-  uint16_t hl = (cpu->regs.h << 8) + cpu->regs.l;
-  uint32_t result = hl + op;
-
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, (hl & 0xFFF) + (op & 0xFFF) > 0xFFF);
-  cpuSetFlag(cpu, FLAG_C, result > 0xFFFF);
-
-  cpu->regs.h = result >> 8;
-  cpu->regs.l = result;
-
-  return 8;
+#define DEF_ADC_B(A)\
+static inline uint8_t ADC_##A(CPU *cpu)\
+{\
+  return ADD(cpu, cpu->regs.A, cpuGetFlag(cpu, FLAG_C));\
 }
 
-inline static uint8_t ADD(CPU *cpu, uint8_t op)
-{
-  uint16_t result = cpu->regs.a + op;
-
-  cpuSetFlag(cpu, FLAG_Z, !(result & 0xFF));
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, (cpu->regs.a & 0xF) + (op & 0xF) > 0xF);
-  cpuSetFlag(cpu, FLAG_C, result > 0xFF);
-
-  cpu->regs.a = result;
-
-	return 4;
+#define DEF_ADC_P(A, B)\
+static inline uint8_t ADC_##A##B(CPU *cpu)\
+{\
+  return ADD(cpu, mmuReadByte(cpu->mmu, (cpu->regs.A << 8) + cpu->regs.B), cpuGetFlag(cpu, FLAG_C)) + 4;\
 }
 
-inline static uint8_t ADC(CPU *cpu, uint8_t op)
-{
-  uint8_t carry = cpuGetFlag(cpu, FLAG_C);
-  uint16_t result = cpu->regs.a + op + carry;
-
-  cpuSetFlag(cpu, FLAG_Z, !(result & 0xFF));
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, (cpu->regs.a & 0xF) + (op & 0xF) + carry > 0xF);
-  cpuSetFlag(cpu, FLAG_C, result > 0xFF);
-
-  cpu->regs.a = result;
-
-	return 4;
+#define DEF_SUB_B(A)\
+static inline uint8_t SUB_##A(CPU *cpu)\
+{\
+  return SUB(cpu, cpu->regs.A, 0);\
 }
 
-inline static uint8_t SUB(CPU *cpu, uint8_t op)
-{
-  int16_t result = cpu->regs.a - op;
-
-  cpuSetFlag(cpu, FLAG_Z, !(result & 0xFF));
-  cpuSetFlag(cpu, FLAG_N, 1);
-  cpuSetFlag(cpu, FLAG_H, (cpu->regs.a & 0xF) - (op & 0xF) < 0);
-  cpuSetFlag(cpu, FLAG_C, result < 0);
-
-  cpu->regs.a = result;
-
-  return 4;
+#define DEF_SUB_P(A, B)\
+static inline uint8_t SUB_##A##B(CPU *cpu)\
+{\
+  return SUB(cpu, mmuReadByte(cpu->mmu, (cpu->regs.A << 8) + cpu->regs.B), 0) + 4;\
 }
 
-inline static uint8_t SBC(CPU *cpu, uint8_t op)
-{
-  uint8_t carry = cpuGetFlag(cpu, FLAG_C);
-  int16_t result = cpu->regs.a - op - carry;
-
-  cpuSetFlag(cpu, FLAG_Z, !(result & 0xFF));
-  cpuSetFlag(cpu, FLAG_N, 1);
-  cpuSetFlag(cpu, FLAG_H, (cpu->regs.a & 0xF) - (op & 0xF) - carry < 0);
-  cpuSetFlag(cpu, FLAG_C, result < 0);
-
-  cpu->regs.a = result;
-
-  return 4;
+#define DEF_SDC_B(A)\
+static inline uint8_t SDC_##A(CPU *cpu)\
+{\
+  return SUB(cpu, cpu->regs.A, cpuGetFlag(cpu, FLAG_C));\
 }
 
-inline static uint8_t CP(CPU *cpu, uint8_t op)
-{
-  int16_t result = cpu->regs.a - op;
-
-  cpuSetFlag(cpu, FLAG_Z, !(result & 0xFF));
-  cpuSetFlag(cpu, FLAG_N, 1);
-  cpuSetFlag(cpu, FLAG_H, (cpu->regs.a & 0xF) - (op & 0xF) < 0);
-  cpuSetFlag(cpu, FLAG_C, result < 0);
-
-  return 4;
+#define DEF_SDC_P(A, B)\
+static inline uint8_t SDC_##A##B(CPU *cpu)\
+{\
+  return SUB(cpu, mmuReadByte(cpu->mmu, (cpu->regs.A << 8) + cpu->regs.B), cpuGetFlag(cpu, FLAG_C)) + 4;\
 }
 
-/* TODO: Do these after macro. */
-inline static uint8_t INC(CPU *cpu, uint8_t op)
-{
-  cpuSetFlag(cpu, FLAG_Z, !(++op));
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, !(op & 0xF));
+DEF_ADD_B(b)
+DEF_ADD_B(c)
+DEF_ADD_B(d)
+DEF_ADD_B(e)
+DEF_ADD_B(h)
+DEF_ADD_B(l)
+DEF_ADD_P(h, l)
+DEF_ADD_B(a)
 
-  return op;
-}
+DEF_ADC_B(b)
+DEF_ADC_B(c)
+DEF_ADC_B(d)
+DEF_ADC_B(e)
+DEF_ADC_B(h)
+DEF_ADC_B(l)
+DEF_ADC_P(h, l)
+DEF_ADC_B(a)
 
-inline static uint16_t INC_W(uint16_t op)
-{
-	return ++op;
-}
+DEF_SUB_B(b)
+DEF_SUB_B(c)
+DEF_SUB_B(d)
+DEF_SUB_B(e)
+DEF_SUB_B(h)
+DEF_SUB_B(l)
+DEF_SUB_P(h, l)
+DEF_SUB_B(a)
 
-inline static uint8_t DEC(CPU *cpu, uint8_t op)
-{
-  uint8_t result = op - 1;
-
-	cpuSetFlag(cpu, FLAG_Z, !result);
-	cpuSetFlag(cpu, FLAG_N, 1);
-	cpuSetFlag(cpu, FLAG_H, (result & 0xF) == 0xF);
-
-	return result;
-}
-
-inline static uint16_t DEC_W(uint16_t op)
-{
-	return --op;
-}
-
-/**
- * Binary Operations
- */
-inline static uint8_t AND(CPU *cpu, uint8_t op)
-{
-  cpu->regs.a &= op;
-  cpuSetFlag(cpu, FLAG_Z, !cpu->regs.a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 1);
-  cpuSetFlag(cpu, FLAG_C, 0);
-
-  return 4;
-}
-
-inline static uint8_t OR(CPU *cpu, uint8_t op)
-{
-  cpu->regs.a |= op;
-  cpuSetFlag(cpu, FLAG_Z, !cpu->regs.a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
-  cpuSetFlag(cpu, FLAG_C, 0);
-
-  return 4;
-}
-
-inline static uint8_t XOR(CPU *cpu, uint8_t op)
-{
-  cpu->regs.a ^= op;
-  cpuSetFlag(cpu, FLAG_Z, !cpu->regs.a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
-  cpuSetFlag(cpu, FLAG_C, 0);
-
-  return 4;
-}
-
-/**
- * Stack Operations
- */
-inline static void PUSH(CPU *cpu, uint16_t val)
-{
-	cpu->regs.sp -= 2;
-	mmuWriteWord(cpu->mmu, cpu->regs.sp, val);
-}
-
-inline static uint16_t POP(CPU *cpu)
-{
-	uint16_t result = mmuReadWord(cpu->mmu, cpu->regs.sp);
-	cpu->regs.sp += 2;
-
-	return result;
-}
-
-/**
- * Other Operations
- */
-inline static uint8_t SWAP(CPU *cpu, uint8_t a)
-{
-  uint8_t result = (a >> 4) | (a << 4);
-  cpuSetFlag(cpu, FLAG_Z, !result);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
-  cpuSetFlag(cpu, FLAG_C, 0);
-
-  return result;
-}
-
-inline static uint8_t RLC(CPU *cpu, uint8_t a)
-{
-  uint8_t r = (a & 0x80) >> 7;
-  cpuSetFlag(cpu, FLAG_C, r);
-  a = (a << 1) + r;
-  cpuSetFlag(cpu, FLAG_Z, !a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
-
-  return a;
-}
-
-inline static uint8_t RL(CPU *cpu, uint8_t a)
-{
-  uint8_t c = cpuGetFlag(cpu, FLAG_C);
-  cpuSetFlag(cpu, FLAG_C, (a & 0x80) >> 7);
-  a = (a << 1) + c;
-  cpuSetFlag(cpu, FLAG_Z, !a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
-
-  return a;
-}
-
-inline static uint8_t RRC(CPU *cpu, uint8_t a)
-{
-  uint8_t r = a & 0x1; cpuSetFlag(cpu, FLAG_C, r);
-  a = (a >> 1) + (r << 7);
-  cpuSetFlag(cpu, FLAG_Z, !a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
-
-  return a;
-}
-
-inline static uint8_t RR(CPU *cpu, uint8_t a)
-{
-  uint8_t c = cpuGetFlag(cpu, FLAG_C);
-  cpuSetFlag(cpu, FLAG_C, a & 0x1); a = (a >> 1) + (c << 7);
-  cpuSetFlag(cpu, FLAG_Z, !a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
-
-  return a;
-}
-
-inline static uint8_t SLA(CPU *cpu, uint8_t a)
-{
-  cpuSetFlag(cpu, FLAG_C, (a & 0x80) >> 7);
-  a <<= 1;
-  cpuSetFlag(cpu, FLAG_Z, !a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
-
-  return a;
-}
-
-inline static uint8_t SRA(CPU *cpu, uint8_t a)
-{
-  cpuSetFlag(cpu, FLAG_C, a & 0x1);
-  a >>= 1;
-  a |= ((a & 0x40) << 1);
-  cpuSetFlag(cpu, FLAG_Z, !a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
-
-  return a;
-}
-
-inline static uint8_t SRL(CPU *cpu, uint8_t a)
-{
-  cpuSetFlag(cpu, FLAG_C, a & 0x1);
-  a >>= 1;
-  cpuSetFlag(cpu, FLAG_Z, !a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
-
-  return a;
-}
-
-inline static void BIT(CPU *cpu, uint8_t a, uint8_t b) {
-  cpuSetFlag(cpu, FLAG_Z, !(a & (1 << b)));
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 1);
-}
-
-inline static uint8_t SET(uint8_t a, uint8_t b)
-{
-  return a | (1 << b);
-}
-
-inline static uint8_t RES(uint8_t a, uint8_t b)
-{
-  return a & ~(1 << b);
-}
-
-inline static uint16_t JR(uint16_t pc, uint8_t a)
-{
-  if ((a & 0x80) == 0x80) {
-    a = ~(a - 0x1);
-    return pc - a;
-  }
-
-  return pc + a;
-}
+DEF_SDC_B(b)
+DEF_SDC_B(c)
+DEF_SDC_B(d)
+DEF_SDC_B(e)
+DEF_SDC_B(h)
+DEF_SDC_B(l)
+DEF_SDC_P(h, l)
+DEF_SDC_B(a)
 
 uint8_t cpuExec(CPU *cpu)
 {
@@ -733,10 +774,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     }
 
     case 0x37: /* SCF */
-      cpuSetFlag(cpu, FLAG_C, 1);
-      cpuSetFlag(cpu, FLAG_N, 0);
-      cpuSetFlag(cpu, FLAG_H, 0);
-      return 4;
+      return SCF(cpu);
 
     case 0x38: /* JR C,r8 */
       if (cpuGetFlag(cpu, FLAG_C)) {
@@ -777,10 +815,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return 8;
 
     case 0x3F: /* CCF */
-      cpuSetFlag(cpu, FLAG_C, !cpuGetFlag(cpu, FLAG_C));
-      cpuSetFlag(cpu, FLAG_N, 0);
-      cpuSetFlag(cpu, FLAG_H, 0);
-      return 4;
+      return CCF(cpu);
 
     case 0x40: /* LD B,B */
       return NOP();
@@ -975,100 +1010,100 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return NOP();
 
     case 0x80: /* ADD A,B */
-      return ADD(cpu, cpu->regs.b);
+      return ADD_b(cpu);
 
     case 0x81: /* ADD A,C */
-      return ADD(cpu, cpu->regs.c);
+      return ADD_c(cpu);
 
     case 0x82: /* ADD A,D */
-      return ADD(cpu, cpu->regs.d);
+      return ADD_d(cpu);
 
     case 0x83: /* ADD A,E */
-      return ADD(cpu, cpu->regs.e);
+      return ADD_e(cpu);
 
     case 0x84: /* ADD A,H */
-      return ADD(cpu, cpu->regs.h);
+      return ADD_h(cpu);
 
     case 0x85: /* ADD A,L */
-      return ADD(cpu, cpu->regs.l);
+      return ADD_l(cpu);
 
     case 0x86: /* ADD A,(HL) */
-      return ADD(cpu, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l)) + 4;
+      return ADD_hl(cpu);
 
     case 0x87: /* ADD A,A */
-      return ADD(cpu, cpu->regs.a);
+      return ADD_a(cpu);
 
     case 0x88: /* ADC A,B */
-      return ADC(cpu, cpu->regs.b);
+      return ADC_b(cpu);
 
     case 0x89: /* ADC A,C */
-      return ADC(cpu, cpu->regs.c);
+      return ADC_c(cpu);
 
     case 0x8A: /* ADC A,D */
-      return ADC(cpu, cpu->regs.d);
+      return ADC_d(cpu);
 
     case 0x8B: /* ADC A,E */
-      return ADC(cpu, cpu->regs.e);
+      return ADC_e(cpu);
 
     case 0x8C: /* ADC A,H */
-      return ADC(cpu, cpu->regs.h);
+      return ADC_h(cpu);
 
     case 0x8D: /* ADC A,L */
-      return ADC(cpu, cpu->regs.l);
+      return ADC_l(cpu);
 
     case 0x8E: /* ADC A,(HL) */
-      return ADC(cpu, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l)) + 4;
+      return ADC_hl(cpu);
 
     case 0x8F: /* ADC A,A */
-      return ADC(cpu, cpu->regs.a);
+      return ADC_a(cpu);
 
     case 0x90: /* SUB A,B */
-      return SUB(cpu, cpu->regs.b);
+      return SUB_b(cpu);
 
     case 0x91: /* SUB A,C */
-      return SUB(cpu, cpu->regs.c);
+      return SUB_c(cpu);
 
     case 0x92: /* SUB A,D */
-      return SUB(cpu, cpu->regs.d);
+      return SUB_d(cpu);
 
     case 0x93: /* SUB A,E */
-      return SUB(cpu, cpu->regs.e);
+      return SUB_e(cpu);
 
     case 0x94: /* SUB A,H */
-      return SUB(cpu, cpu->regs.h);
+      return SUB_h(cpu);
 
     case 0x95: /* SUB A,L */
-      return SUB(cpu, cpu->regs.l);
+      return SUB_l(cpu);
 
     case 0x96: /* SUB A,(HL) */
-      return SUB(cpu, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l)) + 4;
+      return SUB_hl(cpu);
 
     case 0x97: /* SUB A,A */
-      return SUB(cpu, cpu->regs.a);
+      return SUB_a(cpu);
 
     case 0x98: /* SBC A,B */
-      return SBC(cpu, cpu->regs.b);
+      return SDC_b(cpu);
 
     case 0x99: /* SBC A,C */
-      return SBC(cpu, cpu->regs.c);
+      return SDC_c(cpu);
 
     case 0x9A: /* SBC A,D */
-      return SBC(cpu, cpu->regs.d);
+      return SDC_d(cpu);
 
     case 0x9B: /* SBC A,E */
-      return SBC(cpu, cpu->regs.e);
+      return SDC_e(cpu);
 
     case 0x9C: /* SBC A,H */
-      return SBC(cpu, cpu->regs.h);
+      return SDC_h(cpu);
 
     case 0x9D: /* SBC A,L */
-      return SBC(cpu, cpu->regs.l);
+      return SDC_l(cpu);
 
     case 0x9E: /* SBC A,(HL) */
-      return SBC(cpu, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l)) + 4;
+      return SDC_hl(cpu);
 
     case 0x9F: /* SBC A,A */
-      return SBC(cpu, cpu->regs.a);
+      return SDC_a(cpu);
 
     case 0xA0: /* AND B */
       return AND(cpu, cpu->regs.b);
@@ -1208,7 +1243,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0xC6: /* ADD A,d8 */
     {
-      uint8_t cycles = ADD(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc)) + 4;
+      uint8_t cycles = ADD(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc), 0) + 4;
       cpu->regs.pc++;
       return cycles;
     }
@@ -1257,7 +1292,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0xCE: /* ADC A,d8 */
     {
-      uint8_t cycles = ADC(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc)) + 4;
+      uint8_t cycles = ADD(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc), cpuGetFlag(cpu, FLAG_C)) + 4;
       cpu->regs.pc++;
       return cycles;
     }
@@ -1305,7 +1340,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0xD6: /* SUB A,d8 */
     {
-      uint8_t cycles = SUB(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc)) + 4;
+      uint8_t cycles = SUB(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc), 0) + 4;
       cpu->regs.pc++;
       return cycles;
     }
@@ -1346,7 +1381,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0xDE: /* SBC A,d8 */
     {
-      uint8_t cycles = SBC(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc)) + 4;
+      uint8_t cycles = SUB(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc), cpuGetFlag(cpu, FLAG_C)) + 4;
       cpu->regs.pc++;
       return cycles;
     }
