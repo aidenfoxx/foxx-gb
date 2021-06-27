@@ -17,51 +17,6 @@ inline static uint8_t HALT(CPU *cpu)
   return 4;
 }
 
-static uint8_t ADD_WW(CPU *cpu, uint16_t op)
-{
-  uint16_t hl = (cpu->regs.h << 8) + cpu->regs.l;
-  uint32_t result = hl + op;
-
-  cpuSetFlag(cpu, FLAG_N, false);
-  cpuSetFlag(cpu, FLAG_H, (hl & 0xFFF) + (op & 0xFFF) > 0xFFF);
-  cpuSetFlag(cpu, FLAG_C, result > 0xFFFF);
-
-  cpu->regs.h = result >> 8;
-  cpu->regs.l = result;
-
-  return 8;
-}
-
-static uint8_t ADD(CPU *cpu, uint8_t op, uint8_t carry)
-{
-  uint16_t result = cpu->regs.a + op + carry;
-
-  cpuSetFlag(cpu, FLAG_Z, !(result & 0xFF));
-  cpuSetFlag(cpu, FLAG_N, false);
-  cpuSetFlag(cpu, FLAG_H, (cpu->regs.a & 0xF) + (op & 0xF) + carry > 0xF);
-  cpuSetFlag(cpu, FLAG_C, result > 0xFF);
-
-  cpu->regs.a = result;
-
-  return 4;
-}
-
-static uint8_t SUB(CPU *cpu, uint8_t op, uint8_t carry, bool store)
-{
-  int16_t result = cpu->regs.a - op - carry;
-
-  cpuSetFlag(cpu, FLAG_Z, !(result & 0xFF));
-  cpuSetFlag(cpu, FLAG_N, true);
-  cpuSetFlag(cpu, FLAG_H, (cpu->regs.a & 0xF) - (op & 0xF) - carry < 0);
-  cpuSetFlag(cpu, FLAG_C, result < 0);
-
-  if (store) {
-    cpu->regs.a = result;
-  }
-
-  return 4;
-}
-
 /* TODO: Do these after macro. */
 static uint8_t INC(CPU *cpu, uint8_t op)
 {
@@ -91,42 +46,6 @@ static uint8_t DEC(CPU *cpu, uint8_t op)
 static uint16_t DEC_W(uint16_t op)
 {
   return --op;
-}
-
-static uint8_t AND(CPU *cpu, uint8_t op)
-{
-  cpu->regs.a &= op;
-
-  cpuSetFlag(cpu, FLAG_Z, !cpu->regs.a);
-  cpuSetFlag(cpu, FLAG_N, false);
-  cpuSetFlag(cpu, FLAG_H, true);
-  cpuSetFlag(cpu, FLAG_C, false);
-
-  return 4;
-}
-
-static uint8_t OR(CPU *cpu, uint8_t op)
-{
-  cpu->regs.a |= op;
-
-  cpuSetFlag(cpu, FLAG_Z, !cpu->regs.a);
-  cpuSetFlag(cpu, FLAG_N, false);
-  cpuSetFlag(cpu, FLAG_H, false);
-  cpuSetFlag(cpu, FLAG_C, false);
-
-  return 4;
-}
-
-static uint8_t XOR(CPU *cpu, uint8_t op)
-{
-  cpu->regs.a ^= op;
-
-  cpuSetFlag(cpu, FLAG_Z, !cpu->regs.a);
-  cpuSetFlag(cpu, FLAG_N, false);
-  cpuSetFlag(cpu, FLAG_H, false);
-  cpuSetFlag(cpu, FLAG_C, false);
-
-  return 4;
 }
 
 static void PUSH(CPU *cpu, uint16_t val)
@@ -286,7 +205,7 @@ static uint8_t CCF(CPU *cpu)
 }
 
 /**
- * Operation definitions
+ * Load/store operations
  */
 #define DEF_LD_B_B(A, B)\
 static inline uint8_t LD_##A##_##B(CPU *cpu)\
@@ -372,6 +291,54 @@ DEF_LD_B_B(a, e)
 DEF_LD_B_B(a, h)
 DEF_LD_B_B(a, l)
 DEF_LD_B_P(a, h, l)
+
+/**
+ * Arithmetic operations
+ */
+static uint8_t ADD_WW(CPU *cpu, uint16_t op)
+{
+  uint16_t hl = (cpu->regs.h << 8) + cpu->regs.l;
+  uint32_t result = hl + op;
+
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, (hl & 0xFFF) + (op & 0xFFF) > 0xFFF);
+  cpuSetFlag(cpu, FLAG_C, result > 0xFFFF);
+
+  cpu->regs.h = result >> 8;
+  cpu->regs.l = result;
+
+  return 8;
+}
+
+static uint8_t ADD(CPU *cpu, uint8_t op, uint8_t carry)
+{
+  uint16_t result = cpu->regs.a + op + carry;
+
+  cpuSetFlag(cpu, FLAG_Z, !(result & 0xFF));
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, (cpu->regs.a & 0xF) + (op & 0xF) + carry > 0xF);
+  cpuSetFlag(cpu, FLAG_C, result > 0xFF);
+
+  cpu->regs.a = result;
+
+  return 4;
+}
+
+static uint8_t SUB(CPU *cpu, uint8_t op, uint8_t carry, bool store)
+{
+  int16_t result = cpu->regs.a - op - carry;
+
+  cpuSetFlag(cpu, FLAG_Z, !(result & 0xFF));
+  cpuSetFlag(cpu, FLAG_N, true);
+  cpuSetFlag(cpu, FLAG_H, (cpu->regs.a & 0xF) - (op & 0xF) - carry < 0);
+  cpuSetFlag(cpu, FLAG_C, result < 0);
+
+  if (store) {
+    cpu->regs.a = result;
+  }
+
+  return 4;
+}
 
 #define DEF_ADD_B(A)\
 static inline uint8_t ADD_##A(CPU *cpu)\
@@ -487,6 +454,108 @@ DEF_CP_P(h, l)
 DEF_CP_B(a)
 
 DEF_CP_D8()
+
+/**
+ * Bitwise operations
+ */
+static uint8_t AND(CPU *cpu, uint8_t op)
+{
+  cpu->regs.a &= op;
+
+  cpuSetFlag(cpu, FLAG_Z, !cpu->regs.a);
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, true);
+  cpuSetFlag(cpu, FLAG_C, false);
+
+  return 4;
+}
+
+static uint8_t OR(CPU *cpu, uint8_t op)
+{
+  cpu->regs.a |= op;
+
+  cpuSetFlag(cpu, FLAG_Z, !cpu->regs.a);
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, false);
+  cpuSetFlag(cpu, FLAG_C, false);
+
+  return 4;
+}
+
+static uint8_t XOR(CPU *cpu, uint8_t op)
+{
+  cpu->regs.a ^= op;
+
+  cpuSetFlag(cpu, FLAG_Z, !cpu->regs.a);
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, false);
+  cpuSetFlag(cpu, FLAG_C, false);
+
+  return 4;
+}
+
+#define DEF_AND_B(A)\
+static inline uint8_t AND_##A(CPU *cpu)\
+{\
+  return AND(cpu, cpu->regs.A);\
+}
+
+#define DEF_AND_P(A, B)\
+static inline uint8_t AND_##A##B(CPU *cpu)\
+{\
+  return AND(cpu, mmuReadByte(cpu->mmu, (cpu->regs.A << 8) + cpu->regs.B)) + 4;\
+}
+
+#define DEF_OR_B(A)\
+static inline uint8_t OR_##A(CPU *cpu)\
+{\
+  return OR(cpu, cpu->regs.A);\
+}
+
+#define DEF_OR_P(A, B)\
+static inline uint8_t OR_##A##B(CPU *cpu)\
+{\
+  return OR(cpu, mmuReadByte(cpu->mmu, (cpu->regs.A << 8) + cpu->regs.B)) + 4;\
+}
+
+#define DEF_XOR_B(A)\
+static inline uint8_t XOR_##A(CPU *cpu)\
+{\
+  return XOR(cpu, cpu->regs.A);\
+}
+
+#define DEF_XOR_P(A, B)\
+static inline uint8_t XOR_##A##B(CPU *cpu)\
+{\
+  return XOR(cpu, mmuReadByte(cpu->mmu, (cpu->regs.A << 8) + cpu->regs.B)) + 4;\
+}
+
+DEF_AND_B(b)
+DEF_AND_B(c)
+DEF_AND_B(d)
+DEF_AND_B(e)
+DEF_AND_B(h)
+DEF_AND_B(l)
+DEF_AND_P(h, l)
+DEF_AND_B(a)
+
+DEF_OR_B(b)
+DEF_OR_B(c)
+DEF_OR_B(d)
+DEF_OR_B(e)
+DEF_OR_B(h)
+DEF_OR_B(l)
+DEF_OR_P(h, l)
+DEF_OR_B(a)
+
+DEF_XOR_B(b)
+DEF_XOR_B(c)
+DEF_XOR_B(d)
+DEF_XOR_B(e)
+DEF_XOR_B(h)
+DEF_XOR_B(l)
+DEF_XOR_P(h, l)
+DEF_XOR_B(a)
 
 uint8_t cpuExec(CPU *cpu)
 {
@@ -1162,76 +1231,76 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return SDC_a(cpu);
 
     case 0xA0: /* AND B */
-      return AND(cpu, cpu->regs.b);
+      return AND_b(cpu);
 
     case 0xA1: /* AND C */
-      return AND(cpu, cpu->regs.c);
+      return AND_c(cpu);
 
     case 0xA2: /* AND D */
-      return AND(cpu, cpu->regs.d);
+      return AND_d(cpu);
 
     case 0xA3: /* AND E */
-      return AND(cpu, cpu->regs.e);
+      return AND_e(cpu);
 
     case 0xA4: /* AND H */
-      return AND(cpu, cpu->regs.h);
+      return AND_h(cpu);
 
     case 0xA5: /* AND L */
-      return AND(cpu, cpu->regs.l);
+      return AND_l(cpu);
 
     case 0xA6: /* AND (HL) */
-      return AND(cpu, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l)) + 4;
+      return AND_hl(cpu);
 
     case 0xA7: /* AND A */
-      return AND(cpu, cpu->regs.a);
+      return AND_a(cpu);
 
     case 0xA8: /* XOR B */
-      return XOR(cpu, cpu->regs.b);
+      return XOR_b(cpu);
 
     case 0xA9: /* XOR C */
-      return XOR(cpu, cpu->regs.c);
+      return XOR_c(cpu);
 
     case 0xAA: /* XOR D */
-      return XOR(cpu, cpu->regs.d);
+      return XOR_d(cpu);
 
     case 0xAB: /* XOR E */
-      return XOR(cpu, cpu->regs.e);
+      return XOR_e(cpu);
 
     case 0xAC: /* XOR H */
-      return XOR(cpu, cpu->regs.h);
+      return XOR_h(cpu);
 
     case 0xAD: /* XOR L */
-      return XOR(cpu, cpu->regs.l);
+      return XOR_l(cpu);
 
     case 0xAE: /* XOR (HL) */
-      return XOR(cpu, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l)) + 4;
+      return XOR_hl(cpu);
 
     case 0xAF: /* XOR A */
-      return XOR(cpu, cpu->regs.a);
+      return XOR_a(cpu);
 
     case 0xB0: /* OR B */
-      return OR(cpu, cpu->regs.b);
+      return OR_b(cpu);
 
     case 0xB1: /* OR C */
-      return OR(cpu, cpu->regs.c);
+      return OR_c(cpu);
 
     case 0xB2: /* OR D */
-      return OR(cpu, cpu->regs.d);
+      return OR_d(cpu);
 
     case 0xB3: /* OR E */
-      return OR(cpu, cpu->regs.e);
+      return OR_e(cpu);
 
     case 0xB4: /* OR H */
-      return OR(cpu, cpu->regs.h);
+      return OR_h(cpu);
 
     case 0xB5: /* OR L */
-      return OR(cpu, cpu->regs.l);
+      return OR_l(cpu);
 
     case 0xB6: /* OR (HL) */
-      return OR(cpu, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l));
+      return OR_hl(cpu);
 
     case 0xB7: /* OR A */
-      return OR(cpu, cpu->regs.a);
+      return OR_a(cpu);
 
     case 0xB8: /* CP B */
       return CP_b(cpu);
