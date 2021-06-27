@@ -21,45 +21,44 @@ static uint8_t ADD_WW(CPU *cpu, uint16_t op)
 {
   uint16_t hl = (cpu->regs.h << 8) + cpu->regs.l;
   uint32_t result = hl + op;
-  cpuSetFlag(cpu, FLAG_N, 0);
+
+  cpuSetFlag(cpu, FLAG_N, false);
   cpuSetFlag(cpu, FLAG_H, (hl & 0xFFF) + (op & 0xFFF) > 0xFFF);
   cpuSetFlag(cpu, FLAG_C, result > 0xFFFF);
+
   cpu->regs.h = result >> 8;
   cpu->regs.l = result;
+
   return 8;
 }
 
 static uint8_t ADD(CPU *cpu, uint8_t op, uint8_t carry)
 {
   uint16_t result = cpu->regs.a + op + carry;
+
   cpuSetFlag(cpu, FLAG_Z, !(result & 0xFF));
-  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_N, false);
   cpuSetFlag(cpu, FLAG_H, (cpu->regs.a & 0xF) + (op & 0xF) + carry > 0xF);
   cpuSetFlag(cpu, FLAG_C, result > 0xFF);
+
   cpu->regs.a = result;
+
   return 4;
 }
 
-
-static uint8_t SUB(CPU *cpu, uint8_t op, uint8_t carry)
+static uint8_t SUB(CPU *cpu, uint8_t op, uint8_t carry, bool store)
 {
   int16_t result = cpu->regs.a - op - carry;
+
   cpuSetFlag(cpu, FLAG_Z, !(result & 0xFF));
-  cpuSetFlag(cpu, FLAG_N, 1);
+  cpuSetFlag(cpu, FLAG_N, true);
   cpuSetFlag(cpu, FLAG_H, (cpu->regs.a & 0xF) - (op & 0xF) - carry < 0);
   cpuSetFlag(cpu, FLAG_C, result < 0);
-  cpu->regs.a = result;
-  return 4;
-}
 
-static uint8_t CP(CPU *cpu, uint8_t op)
-{
-  int16_t result = cpu->regs.a - op;
+  if (store) {
+    cpu->regs.a = result;
+  }
 
-  cpuSetFlag(cpu, FLAG_Z, !(result & 0xFF));
-  cpuSetFlag(cpu, FLAG_N, 1);
-  cpuSetFlag(cpu, FLAG_H, (cpu->regs.a & 0xF) - (op & 0xF) < 0);
-  cpuSetFlag(cpu, FLAG_C, result < 0);
   return 4;
 }
 
@@ -67,8 +66,9 @@ static uint8_t CP(CPU *cpu, uint8_t op)
 static uint8_t INC(CPU *cpu, uint8_t op)
 {
   cpuSetFlag(cpu, FLAG_Z, !(++op));
-  cpuSetFlag(cpu, FLAG_N, 0);
+  cpuSetFlag(cpu, FLAG_N, false);
   cpuSetFlag(cpu, FLAG_H, !(op & 0xF));
+
   return op;
 }
 
@@ -82,8 +82,9 @@ static uint8_t DEC(CPU *cpu, uint8_t op)
   uint8_t result = op - 1;
 
   cpuSetFlag(cpu, FLAG_Z, !result);
-  cpuSetFlag(cpu, FLAG_N, 1);
+  cpuSetFlag(cpu, FLAG_N, true);
   cpuSetFlag(cpu, FLAG_H, (result & 0xF) == 0xF);
+
   return result;
 }
 
@@ -95,30 +96,36 @@ static uint16_t DEC_W(uint16_t op)
 static uint8_t AND(CPU *cpu, uint8_t op)
 {
   cpu->regs.a &= op;
+
   cpuSetFlag(cpu, FLAG_Z, !cpu->regs.a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 1);
-  cpuSetFlag(cpu, FLAG_C, 0);
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, true);
+  cpuSetFlag(cpu, FLAG_C, false);
+
   return 4;
 }
 
 static uint8_t OR(CPU *cpu, uint8_t op)
 {
   cpu->regs.a |= op;
+
   cpuSetFlag(cpu, FLAG_Z, !cpu->regs.a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
-  cpuSetFlag(cpu, FLAG_C, 0);
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, false);
+  cpuSetFlag(cpu, FLAG_C, false);
+
   return 4;
 }
 
 static uint8_t XOR(CPU *cpu, uint8_t op)
 {
   cpu->regs.a ^= op;
+
   cpuSetFlag(cpu, FLAG_Z, !cpu->regs.a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
-  cpuSetFlag(cpu, FLAG_C, 0);
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, false);
+  cpuSetFlag(cpu, FLAG_C, false);
+
   return 4;
 }
 
@@ -132,58 +139,70 @@ static uint16_t POP(CPU *cpu)
 {
   uint16_t result = mmuReadWord(cpu->mmu, cpu->regs.sp);
   cpu->regs.sp += 2;
+
   return result;
 }
 
 static uint8_t SWAP(CPU *cpu, uint8_t a)
 {
   uint8_t result = (a >> 4) | (a << 4);
+
   cpuSetFlag(cpu, FLAG_Z, !result);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
-  cpuSetFlag(cpu, FLAG_C, 0);
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, false);
+  cpuSetFlag(cpu, FLAG_C, false);
+
   return result;
 }
 
 static uint8_t RLC(CPU *cpu, uint8_t a)
 {
   uint8_t r = (a & 0x80) >> 7;
+
   cpuSetFlag(cpu, FLAG_C, r);
   a = (a << 1) + r;
   cpuSetFlag(cpu, FLAG_Z, !a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, false);
+
   return a;
 }
 
 static uint8_t RL(CPU *cpu, uint8_t a)
 {
   uint8_t c = cpuGetFlag(cpu, FLAG_C);
+
   cpuSetFlag(cpu, FLAG_C, (a & 0x80) >> 7);
   a = (a << 1) + c;
   cpuSetFlag(cpu, FLAG_Z, !a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, false);
+
   return a;
 }
 
 static uint8_t RRC(CPU *cpu, uint8_t a)
 {
-  uint8_t r = a & 0x1; cpuSetFlag(cpu, FLAG_C, r);
+  uint8_t r = a & 0x1;
+
+  cpuSetFlag(cpu, FLAG_C, r);
   a = (a >> 1) + (r << 7);
   cpuSetFlag(cpu, FLAG_Z, !a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, false);
+
   return a;
 }
 
 static uint8_t RR(CPU *cpu, uint8_t a)
 {
   uint8_t c = cpuGetFlag(cpu, FLAG_C);
+
   cpuSetFlag(cpu, FLAG_C, a & 0x1); a = (a >> 1) + (c << 7);
   cpuSetFlag(cpu, FLAG_Z, !a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, false);
+
   return a;
 }
 
@@ -192,8 +211,9 @@ static uint8_t SLA(CPU *cpu, uint8_t a)
   cpuSetFlag(cpu, FLAG_C, (a & 0x80) >> 7);
   a <<= 1;
   cpuSetFlag(cpu, FLAG_Z, !a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, false);
+
   return a;
 }
 
@@ -203,8 +223,9 @@ static uint8_t SRA(CPU *cpu, uint8_t a)
   a >>= 1;
   a |= ((a & 0x40) << 1);
   cpuSetFlag(cpu, FLAG_Z, !a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, false);
+
   return a;
 }
 
@@ -213,16 +234,18 @@ static uint8_t SRL(CPU *cpu, uint8_t a)
   cpuSetFlag(cpu, FLAG_C, a & 0x1);
   a >>= 1;
   cpuSetFlag(cpu, FLAG_Z, !a);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, false);
 
   return a;
 }
 
-static void BIT(CPU *cpu, uint8_t a, uint8_t b) {
-  cpuSetFlag(cpu, FLAG_Z, !(a & (1 << b)));
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 1);
+static uint8_t BIT(CPU *cpu, uint8_t a, uint8_t b) {
+  cpuSetFlag(cpu, FLAG_Z, !(b & (1 << a)));
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, true);
+
+  return 8;
 }
 
 static uint8_t SET(uint8_t a, uint8_t b)
@@ -246,17 +269,19 @@ static uint16_t JR(uint16_t pc, uint8_t a)
 
 static uint8_t SCF(CPU *cpu)
 {
-  cpuSetFlag(cpu, FLAG_C, 1);
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
+  cpuSetFlag(cpu, FLAG_C, true);
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, false);
+
   return 4;
 }
 
 static uint8_t CCF(CPU *cpu)
 {
   cpuSetFlag(cpu, FLAG_C, !cpuGetFlag(cpu, FLAG_C));
-  cpuSetFlag(cpu, FLAG_N, 0);
-  cpuSetFlag(cpu, FLAG_H, 0);
+  cpuSetFlag(cpu, FLAG_N, false);
+  cpuSetFlag(cpu, FLAG_H, false);
+
   return 4;
 }
 
@@ -375,25 +400,45 @@ static inline uint8_t ADC_##A##B(CPU *cpu)\
 #define DEF_SUB_B(A)\
 static inline uint8_t SUB_##A(CPU *cpu)\
 {\
-  return SUB(cpu, cpu->regs.A, 0);\
+  return SUB(cpu, cpu->regs.A, 0, true);\
 }
 
 #define DEF_SUB_P(A, B)\
 static inline uint8_t SUB_##A##B(CPU *cpu)\
 {\
-  return SUB(cpu, mmuReadByte(cpu->mmu, (cpu->regs.A << 8) + cpu->regs.B), 0) + 4;\
+  return SUB(cpu, mmuReadByte(cpu->mmu, (cpu->regs.A << 8) + cpu->regs.B), 0, true) + 4;\
 }
 
 #define DEF_SDC_B(A)\
 static inline uint8_t SDC_##A(CPU *cpu)\
 {\
-  return SUB(cpu, cpu->regs.A, cpuGetFlag(cpu, FLAG_C));\
+  return SUB(cpu, cpu->regs.A, cpuGetFlag(cpu, FLAG_C), true);\
 }
 
 #define DEF_SDC_P(A, B)\
 static inline uint8_t SDC_##A##B(CPU *cpu)\
 {\
-  return SUB(cpu, mmuReadByte(cpu->mmu, (cpu->regs.A << 8) + cpu->regs.B), cpuGetFlag(cpu, FLAG_C)) + 4;\
+  return SUB(cpu, mmuReadByte(cpu->mmu, (cpu->regs.A << 8) + cpu->regs.B), cpuGetFlag(cpu, FLAG_C), true) + 4;\
+}
+
+#define DEF_CP_B(A)\
+static inline uint8_t CP_##A(CPU *cpu)\
+{\
+  return SUB(cpu, cpu->regs.A, 0, false);\
+}
+
+#define DEF_CP_P(A, B)\
+static inline uint8_t CP_##A##B(CPU *cpu)\
+{\
+  return SUB(cpu, mmuReadByte(cpu->mmu, (cpu->regs.A << 8) + cpu->regs.B), 0, false) + 4;\
+}
+
+#define DEF_CP_D8()\
+static inline uint8_t CP_d8(CPU *cpu)\
+{\
+  uint8_t cycles = SUB(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc), 0, false);\
+  cpu->regs.pc++;\
+  return cycles + 4;\
 }
 
 DEF_ADD_B(b)
@@ -431,6 +476,17 @@ DEF_SDC_B(h)
 DEF_SDC_B(l)
 DEF_SDC_P(h, l)
 DEF_SDC_B(a)
+
+DEF_CP_B(b)
+DEF_CP_B(c)
+DEF_CP_B(d)
+DEF_CP_B(e)
+DEF_CP_B(h)
+DEF_CP_B(l)
+DEF_CP_P(h, l)
+DEF_CP_B(a)
+
+DEF_CP_D8()
 
 uint8_t cpuExec(CPU *cpu)
 {
@@ -1178,28 +1234,28 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return OR(cpu, cpu->regs.a);
 
     case 0xB8: /* CP B */
-      return CP(cpu, cpu->regs.b);
+      return CP_b(cpu);
 
     case 0xB9: /* CP C */
-      return CP(cpu, cpu->regs.c);
+      return CP_c(cpu);
 
     case 0xBA: /* CP D */
-      return CP(cpu, cpu->regs.d);
+      return CP_d(cpu);
 
     case 0xBB: /* CP E */
-      return CP(cpu, cpu->regs.e);
+      return CP_e(cpu);
 
     case 0xBC: /* CP H */
-      return CP(cpu, cpu->regs.h);
+      return CP_h(cpu);
 
     case 0xBD: /* CP L */
-      return CP(cpu, cpu->regs.l);
+      return CP_l(cpu);
 
     case 0xBE: /* CP (HL) */
-      return CP(cpu, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l)) + 4;
+      return CP_hl(cpu);
 
     case 0xBF: /* CP A */
-      return CP(cpu, cpu->regs.a);
+      return CP_a(cpu);
 
     case 0xC0: /* RET NZ */
       if (!cpuGetFlag(cpu, FLAG_Z)) {
@@ -1340,7 +1396,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0xD6: /* SUB A,d8 */
     {
-      uint8_t cycles = SUB(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc), 0) + 4;
+      uint8_t cycles = SUB(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc), 0, true) + 4;
       cpu->regs.pc++;
       return cycles;
     }
@@ -1381,7 +1437,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 
     case 0xDE: /* SBC A,d8 */
     {
-      uint8_t cycles = SUB(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc), cpuGetFlag(cpu, FLAG_C)) + 4;
+      uint8_t cycles = SUB(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc), cpuGetFlag(cpu, FLAG_C), true) + 4;
       cpu->regs.pc++;
       return cycles;
     }
@@ -1529,11 +1585,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return 4;
 
     case 0xFE: /* CP d8 */
-    {
-      uint8_t cycles = CP(cpu, mmuReadByte(cpu->mmu, cpu->regs.pc)) + 4;
-      cpu->regs.pc++;
-      return cycles;
-    }
+      return CP_d8(cpu);
 
     case 0xFF: /* RST 38H */
       PUSH(cpu, cpu->regs.pc);
@@ -1828,284 +1880,196 @@ uint8_t cpuOpcodeCB(CPU *cpu, uint8_t opcode)
       return 8;
 
     case 0x40: /* BIT 0,B */
-      BIT(cpu, cpu->regs.b, 0);
-      return 8;
+      return BIT(cpu, 0, cpu->regs.b);
 
     case 0x41: /* BIT 0,C */
-      BIT(cpu, cpu->regs.c, 0);
-      return 8;
+      return BIT(cpu, 0, cpu->regs.c);
 
     case 0x42: /* BIT 0,D */
-      BIT(cpu, cpu->regs.d, 0);
-      return 8;
+      return BIT(cpu, 0, cpu->regs.d);
 
     case 0x43: /* BIT 0,E */
-      BIT(cpu, cpu->regs.e, 0);
-      return 8;
+      return BIT(cpu, 0, cpu->regs.e);
 
     case 0x44: /* BIT 0,H */
-      BIT(cpu, cpu->regs.h, 0);
-      return 8;
+      return BIT(cpu, 0, cpu->regs.h);
 
     case 0x45: /* BIT 0,L */
-      BIT(cpu, cpu->regs.l, 0);
-      return 8;
+      return BIT(cpu, 0, cpu->regs.l);
 
     case 0x46: /* BIT 0,(HL) */
-    {
-      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
-      BIT(cpu, mmuReadByte(cpu->mmu, addr), 0);
-      return 16;
-    }
+      return BIT(cpu, 0, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l)) + 8;
 
     case 0x47: /* BIT 0,A */
-      BIT(cpu, cpu->regs.a, 0);
-      return 8;
+      return BIT(cpu, 0, cpu->regs.a);
 
     case 0x48: /* BIT 1,B */
-      BIT(cpu, cpu->regs.b, 1);
-      return 8;
+      return BIT(cpu, 1, cpu->regs.b);
 
     case 0x49: /* BIT 1,C */
-      BIT(cpu, cpu->regs.c, 1);
-      return 8;
+      return BIT(cpu, 1, cpu->regs.c);
 
     case 0x4A: /* BIT 1,D */
-      BIT(cpu, cpu->regs.d, 1);
-      return 8;
+      return BIT(cpu, 1, cpu->regs.d);
 
     case 0x4B: /* BIT 1,E */
-      BIT(cpu, cpu->regs.e, 1);
-      return 8;
+      return BIT(cpu, 1, cpu->regs.e);
 
     case 0x4C: /* BIT 1,H */
-      BIT(cpu, cpu->regs.h, 1);
-      return 8;
+      return BIT(cpu, 1, cpu->regs.h);
 
     case 0x4D: /* BIT 1,L */
-      BIT(cpu, cpu->regs.l, 1);
-      return 8;
+      return BIT(cpu, 1, cpu->regs.l);
 
     case 0x4E: /* BIT 1,(HL) */
-    {
-      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
-      BIT(cpu, mmuReadByte(cpu->mmu, addr), 1);
-      return 16;
-    }
+      return BIT(cpu, 1, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l)) + 8;
 
     case 0x4F: /* BIT 1,A */
-      BIT(cpu, cpu->regs.a, 1);
-      return 8;
+      return BIT(cpu, 1, cpu->regs.a);
 
     case 0x50: /* BIT 2,B */
-      BIT(cpu, cpu->regs.b, 2);
-      return 8;
+      return BIT(cpu, 2, cpu->regs.b);
 
     case 0x51: /* BIT 2,C */
-      BIT(cpu, cpu->regs.c, 2);
-      return 8;
+      return BIT(cpu, 2, cpu->regs.c);
 
     case 0x52: /* BIT 2,D */
-      BIT(cpu, cpu->regs.d, 2);
-      return 8;
+      return BIT(cpu, 2, cpu->regs.d);
 
     case 0x53: /* BIT 2,E */
-      BIT(cpu, cpu->regs.e, 2);
-      return 8;
+      return BIT(cpu, 2, cpu->regs.e);
 
     case 0x54: /* BIT 2,H */
-      BIT(cpu, cpu->regs.h, 2);
-      return 8;
+      return BIT(cpu, 2, cpu->regs.h);
 
     case 0x55: /* BIT 2,L */
-      BIT(cpu, cpu->regs.l, 2);
-      return 8;
+      return BIT(cpu, 2, cpu->regs.l);
 
     case 0x56: /* BIT 2,(HL) */
-    {
-      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
-      BIT(cpu, mmuReadByte(cpu->mmu, addr), 2);
-      return 16;
-    }
+      return BIT(cpu, 2, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l)) + 8;
 
     case 0x57: /* BIT 2,A */
-      BIT(cpu, cpu->regs.a, 2);
-      return 8;
+      return BIT(cpu, 2, cpu->regs.a);
 
     case 0x58: /* BIT 3,B */
-      BIT(cpu, cpu->regs.b, 3);
-      return 8;
+      return BIT(cpu, 3, cpu->regs.b);
 
     case 0x59: /* BIT 3,C */
-      BIT(cpu, cpu->regs.c, 3);
-      return 8;
+      return BIT(cpu, 3, cpu->regs.c);
 
     case 0x5A: /* BIT 3,D */
-      BIT(cpu, cpu->regs.d, 3);
-      return 8;
+      return BIT(cpu, 3, cpu->regs.d);
 
     case 0x5B: /* BIT 3,E */
-      BIT(cpu, cpu->regs.e, 3);
-      return 8;
+      return BIT(cpu, 3, cpu->regs.e);
 
     case 0x5C: /* BIT 3,H */
-      BIT(cpu, cpu->regs.h, 3);
-      return 8;
+      return BIT(cpu, 3, cpu->regs.h);
 
     case 0x5D: /* BIT 3,L */
-      BIT(cpu, cpu->regs.l, 3);
-      return 8;
+      return BIT(cpu, 3, cpu->regs.l);
 
     case 0x5E: /* BIT 3,(HL) */
-    {
-      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
-      BIT(cpu, mmuReadByte(cpu->mmu, addr), 3);
-      return 16;
-    }
+      return BIT(cpu, 3, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l)) + 8;
 
     case 0x5F: /* BIT 3,A */
-      BIT(cpu, cpu->regs.a, 3);
-      return 8;
+      return BIT(cpu, 3, cpu->regs.a);
 
     case 0x60: /* BIT 4,B */
-      BIT(cpu, cpu->regs.b, 4);
-      return 8;
+      return BIT(cpu, 4, cpu->regs.b);
 
     case 0x61: /* BIT 4,C */
-      BIT(cpu, cpu->regs.c, 4);
-      return 8;
+      return BIT(cpu, 4, cpu->regs.c);
 
     case 0x62: /* BIT 4,D */
-      BIT(cpu, cpu->regs.d, 4);
-      return 8;
+      return BIT(cpu, 4, cpu->regs.d);
 
     case 0x63: /* BIT 4,E */
-      BIT(cpu, cpu->regs.e, 4);
-      return 8;
+      return BIT(cpu, 4, cpu->regs.e);
 
     case 0x64: /* BIT 4,H */
-      BIT(cpu, cpu->regs.h, 4);
-      return 8;
+      return BIT(cpu, 4, cpu->regs.h);
 
     case 0x65: /* BIT 4,L */
-      BIT(cpu, cpu->regs.l, 4);
-      return 8;
+      return BIT(cpu, 4, cpu->regs.l);
 
     case 0x66: /* BIT 4,(HL) */
-    {
-      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
-      BIT(cpu, mmuReadByte(cpu->mmu, addr), 4);
-      return 16;
-    }
+      return BIT(cpu, 4, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l)) + 8;
 
     case 0x67: /* BIT 4,A */
-      BIT(cpu, cpu->regs.a, 4);
-      return 8;
+      return BIT(cpu, 4, cpu->regs.a);
 
     case 0x68: /* BIT 5,B */
-      BIT(cpu, cpu->regs.b, 5);
-      return 8;
+      return BIT(cpu, 5, cpu->regs.b);
 
     case 0x69: /* BIT 5,C */
-      BIT(cpu, cpu->regs.c, 5);
-      return 8;
+      return BIT(cpu, 5, cpu->regs.c);
 
     case 0x6A: /* BIT 5,D */
-      BIT(cpu, cpu->regs.d, 5);
-      return 8;
+      return BIT(cpu, 5, cpu->regs.d);
 
     case 0x6B: /* BIT 5,E */
-      BIT(cpu, cpu->regs.e, 5);
-      return 8;
+      return BIT(cpu, 5, cpu->regs.e);
 
     case 0x6C: /* BIT 5,H */
-      BIT(cpu, cpu->regs.h, 5);
-      return 8;
+      return BIT(cpu, 5, cpu->regs.h);
 
     case 0x6D: /* BIT 5,L */
-      BIT(cpu, cpu->regs.l, 5);
-      return 8;
+      return BIT(cpu, 5, cpu->regs.l);
 
     case 0x6E: /* BIT 5,(HL) */
-    {
-      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
-      BIT(cpu, mmuReadByte(cpu->mmu, addr), 5);
-      return 16;
-    }
+      return BIT(cpu, 5, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l)) + 8;
 
     case 0x6F: /* BIT 5,A */
-      BIT(cpu, cpu->regs.a, 5);
-      return 8;
+      return BIT(cpu, 5, cpu->regs.a);
 
     case 0x70: /* BIT 6,B */
-      BIT(cpu, cpu->regs.b, 6);
-      return 8;
+      return BIT(cpu, 6, cpu->regs.b);
 
     case 0x71: /* BIT 6,C */
-      BIT(cpu, cpu->regs.c, 6);
-      return 8;
+      return BIT(cpu, 6, cpu->regs.c);
 
     case 0x72: /* BIT 6,D */
-      BIT(cpu, cpu->regs.d, 6);
-      return 8;
+      return BIT(cpu, 6, cpu->regs.d);
 
     case 0x73: /* BIT 6,E */
-      BIT(cpu, cpu->regs.e, 6);
-      return 8;
+      return BIT(cpu, 6, cpu->regs.e);
 
     case 0x74: /* BIT 6,H */
-      BIT(cpu, cpu->regs.h, 6);
-      return 8;
+      return BIT(cpu, 6, cpu->regs.h);
 
     case 0x75: /* BIT 6,L */
-      BIT(cpu, cpu->regs.l, 6);
-      return 8;
+      return BIT(cpu, 6, cpu->regs.l);
 
     case 0x76: /* BIT 6,(HL) */
-    {
-      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
-      BIT(cpu, mmuReadByte(cpu->mmu, addr), 6);
-      return 16;
-    }
+      return BIT(cpu, 6, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l)) + 8;
 
     case 0x77: /* BIT 6,A */
-      BIT(cpu, cpu->regs.a, 6);
-      return 8;
+      return BIT(cpu, 6, cpu->regs.a);
 
     case 0x78: /* BIT 7,B */
-      BIT(cpu, cpu->regs.b, 7);
-      return 8;
+      return BIT(cpu, 7, cpu->regs.b);
 
     case 0x79: /* BIT 7,C */
-      BIT(cpu, cpu->regs.c, 7);
-      return 8;
+      return BIT(cpu, 7, cpu->regs.c);
 
     case 0x7A: /* BIT 7,D */
-      BIT(cpu, cpu->regs.d, 7);
-      return 8;
+      return BIT(cpu, 7, cpu->regs.d);
 
     case 0x7B: /* BIT 7,E */
-      BIT(cpu, cpu->regs.e, 7);
-      return 8;
+      return BIT(cpu, 7, cpu->regs.e);
 
     case 0x7C: /* BIT 7,H */
-      BIT(cpu, cpu->regs.h, 7);
-      return 8;
+      return BIT(cpu, 7, cpu->regs.h);
 
     case 0x7D: /* BIT 7,L */
-      BIT(cpu, cpu->regs.l, 7);
-      return 8;
+      return BIT(cpu, 7, cpu->regs.l);
 
     case 0x7E: /* BIT 7,(HL) */
-    {
-      uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
-      BIT(cpu, mmuReadByte(cpu->mmu, addr), 7);
-      return 16;
-    }
+      return BIT(cpu, 7, mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l)) + 8;
 
     case 0x7F: /* BIT 7,A */
-      BIT(cpu, cpu->regs.a, 7);
-      return 8;
+      return BIT(cpu, 7, cpu->regs.a);
 
     case 0x80: /* RES 0,B */
       cpu->regs.b = RES(cpu->regs.b, 0);
