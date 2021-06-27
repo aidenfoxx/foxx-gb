@@ -3,11 +3,106 @@
 static uint8_t cpuOpcode(CPU*, uint8_t);
 static uint8_t cpuOpcodeCB(CPU*, uint8_t);
 
+#define DEF_LD_B_B(A, B)\
+static inline uint8_t LD_##A##_##B(CPU *cpu)\
+{\
+  cpu->regs.A = cpu->regs.B;\
+  return 4;\
+}
+
+#define DEF_LD_B_P(A, B, C)\
+static inline uint8_t LD_##A##_##B##C(CPU *cpu)\
+{\
+  cpu->regs.A = mmuReadByte(cpu->mmu, (cpu->regs.B << 8) + cpu->regs.C);\
+  return 8;\
+}
+
+#define DEF_LD_P_B(A, B, C)\
+static inline uint8_t LD_##A##B##_##C(CPU *cpu)\
+{\
+  mmuWriteByte(cpu->mmu, (cpu->regs.A << 8) + cpu->regs.B, cpu->regs.C);\
+  return 8;\
+}
+
+DEF_LD_B_B(b, c)
+DEF_LD_B_B(b, d)
+DEF_LD_B_B(b, e)
+DEF_LD_B_B(b, h)
+DEF_LD_B_B(b, l)
+DEF_LD_B_P(b, h, l)
+DEF_LD_B_B(b, a)
+
+DEF_LD_B_B(c, b)
+DEF_LD_B_B(c, d)
+DEF_LD_B_B(c, e)
+DEF_LD_B_B(c, h)
+DEF_LD_B_B(c, l)
+DEF_LD_B_P(c, h, l)
+DEF_LD_B_B(c, a)
+
+DEF_LD_B_B(d, b)
+DEF_LD_B_B(d, c)
+DEF_LD_B_B(d, e)
+DEF_LD_B_B(d, h)
+DEF_LD_B_B(d, l)
+DEF_LD_B_P(d, h, l)
+DEF_LD_B_B(d, a)
+
+DEF_LD_B_B(e, b)
+DEF_LD_B_B(e, c)
+DEF_LD_B_B(e, d)
+DEF_LD_B_B(e, h)
+DEF_LD_B_B(e, l)
+DEF_LD_B_P(e, h, l)
+DEF_LD_B_B(e, a)
+
+DEF_LD_B_B(h, b)
+DEF_LD_B_B(h, c)
+DEF_LD_B_B(h, d)
+DEF_LD_B_B(h, e)
+DEF_LD_B_B(h, l)
+DEF_LD_B_P(h, h, l)
+DEF_LD_B_B(h, a)
+
+DEF_LD_B_B(l, b)
+DEF_LD_B_B(l, c)
+DEF_LD_B_B(l, d)
+DEF_LD_B_B(l, e)
+DEF_LD_B_B(l, h)
+DEF_LD_B_P(l, h, l)
+DEF_LD_B_B(l, a)
+
+DEF_LD_P_B(h, l, a)
+DEF_LD_P_B(h, l, b)
+DEF_LD_P_B(h, l, c)
+DEF_LD_P_B(h, l, d)
+DEF_LD_P_B(h, l, e)
+DEF_LD_P_B(h, l, h)
+DEF_LD_P_B(h, l, l)
+
+DEF_LD_B_B(a, b)
+DEF_LD_B_B(a, c)
+DEF_LD_B_B(a, d)
+DEF_LD_B_B(a, e)
+DEF_LD_B_B(a, h)
+DEF_LD_B_B(a, l)
+DEF_LD_B_P(a, h, l)
+
+inline static uint8_t NOP()
+{
+  return 4;
+}
+
+inline static uint8_t HALT(CPU *cpu)
+{
+  cpu->halt = true;
+  return 4;
+}
 
 /**
  * Arithmetic Operations
  */
-inline static uint16_t ADD_WW(CPU *cpu, uint16_t op)
+inline static uint8_t ADD_WW(CPU *cpu, uint16_t op)
 {
   uint16_t hl = (cpu->regs.h << 8) + cpu->regs.l;
   uint32_t result = hl + op;
@@ -93,7 +188,7 @@ inline static uint8_t CP(CPU *cpu, uint8_t op)
 }
 
 /* TODO: Do these after macro. */
-inline static uint8_t INC_B(CPU *cpu, uint8_t op)
+inline static uint8_t INC(CPU *cpu, uint8_t op)
 {
   cpuSetFlag(cpu, FLAG_Z, !(++op));
   cpuSetFlag(cpu, FLAG_N, 0);
@@ -107,7 +202,7 @@ inline static uint16_t INC_W(uint16_t op)
 	return ++op;
 }
 
-inline static uint8_t DEC_B(CPU *cpu, uint8_t op)
+inline static uint8_t DEC(CPU *cpu, uint8_t op)
 {
   uint8_t result = op - 1;
 
@@ -313,7 +408,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
 {
   switch (opcode) {
     case 0: /* NOP */
-      return 4;
+      return NOP();
 
     case 0x1: /* LD BC,d16 */
     {
@@ -337,11 +432,11 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     }
 
     case 0x4: /* INC B */
-      cpu->regs.b = INC_B(cpu, cpu->regs.b);
+      cpu->regs.b = INC(cpu, cpu->regs.b);
       return 4;
 
     case 0x5: /* DEC B */
-      cpu->regs.b = DEC_B(cpu, cpu->regs.b);
+      cpu->regs.b = DEC(cpu, cpu->regs.b);
       return 4;
 
     case 0x6: /* LD B,d8 */
@@ -375,11 +470,11 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     }
 
     case 0xC: /* INC C */
-      cpu->regs.c = INC_B(cpu, cpu->regs.c);
+      cpu->regs.c = INC(cpu, cpu->regs.c);
       return 4;
 
     case 0xD: /* DEC C */
-      cpu->regs.c = DEC_B(cpu, cpu->regs.c);
+      cpu->regs.c = DEC(cpu, cpu->regs.c);
       return 4;
 
     case 0xE: /* LD C,d8 */
@@ -393,7 +488,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return 4;
 
     case 0x10: /* STOP 0 */
-      return 4;
+      return NOP();
 
     case 0x11: /* LD DE,d16 */
     {
@@ -417,11 +512,11 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     }
 
     case 0x14: /* INC D */
-      cpu->regs.d = INC_B(cpu, cpu->regs.d);
+      cpu->regs.d = INC(cpu, cpu->regs.d);
       return 4;
 
     case 0x15: /* DEC D */
-      cpu->regs.d = DEC_B(cpu, cpu->regs.d);
+      cpu->regs.d = DEC(cpu, cpu->regs.d);
       return 4;
 
     case 0x16: /* LD D,d8 */
@@ -453,11 +548,11 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     }
 
     case 0x1C: /* INC E */
-      cpu->regs.e = INC_B(cpu, cpu->regs.e);
+      cpu->regs.e = INC(cpu, cpu->regs.e);
       return 4;
 
     case 0x1D: /* DEC E */
-      cpu->regs.e = DEC_B(cpu, cpu->regs.e);
+      cpu->regs.e = DEC(cpu, cpu->regs.e);
       return 4;
 
     case 0x1E: /* LD E,d8 */
@@ -505,11 +600,11 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     }
 
     case 0x24: /* INC H */
-      cpu->regs.h = INC_B(cpu, cpu->regs.h);
+      cpu->regs.h = INC(cpu, cpu->regs.h);
       return 4;
 
     case 0x25: /* DEC H */
-      cpu->regs.h = DEC_B(cpu, cpu->regs.h);
+      cpu->regs.h = DEC(cpu, cpu->regs.h);
       return 4;
 
     case 0x26: /* LD H,d8 */
@@ -570,11 +665,11 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     }
 
     case 0x2C: /* INC L */
-      cpu->regs.l = INC_B(cpu, cpu->regs.l);
+      cpu->regs.l = INC(cpu, cpu->regs.l);
       return 4;
 
     case 0x2D: /* DEC L */
-      cpu->regs.l = DEC_B(cpu, cpu->regs.l);
+      cpu->regs.l = DEC(cpu, cpu->regs.l);
       return 4;
 
     case 0x2E: /* LD L,d8 */
@@ -618,14 +713,14 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     case 0x34: /* INC (HL) */
     {
       uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
-      mmuWriteByte(cpu->mmu, addr, INC_B(cpu, mmuReadByte(cpu->mmu, addr)));
+      mmuWriteByte(cpu->mmu, addr, INC(cpu, mmuReadByte(cpu->mmu, addr)));
       return 12;
     }
 
     case 0x35: /* DEC (HL) */
     {
       uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
-      mmuWriteByte(cpu->mmu, addr, DEC_B(cpu, mmuReadByte(cpu->mmu, addr)));
+      mmuWriteByte(cpu->mmu, addr, DEC(cpu, mmuReadByte(cpu->mmu, addr)));
       return 12;
     }
 
@@ -669,11 +764,11 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return 8;
 
     case 0x3C: /* INC A */
-      cpu->regs.a = INC_B(cpu, cpu->regs.a);
+      cpu->regs.a = INC(cpu, cpu->regs.a);
       return 4;
 
     case 0x3D: /* DEC A */
-      cpu->regs.a = DEC_B(cpu, cpu->regs.a);
+      cpu->regs.a = DEC(cpu, cpu->regs.a);
       return 4;
 
     case 0x3E: /* LD A,d8 */
@@ -688,260 +783,196 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return 4;
 
     case 0x40: /* LD B,B */
-      cpu->regs.b = cpu->regs.b;
-      return 4;
+      return NOP();
 
     case 0x41: /* LD B,C */
-      cpu->regs.b = cpu->regs.c;
-      return 4;
+      return LD_b_c(cpu);
 
     case 0x42: /* LD B,D */
-      cpu->regs.b = cpu->regs.d;
-      return 4;
+      return LD_b_d(cpu);
 
     case 0x43: /* LD B,E */
-      cpu->regs.b = cpu->regs.e;
-      return 4;
+      return LD_b_e(cpu);
 
     case 0x44: /* LD B,H */
-      cpu->regs.b = cpu->regs.h;
-      return 4;
+      return LD_b_h(cpu);
 
     case 0x45: /* LD B,L */
-      cpu->regs.b = cpu->regs.l;
-      return 4;
+      return LD_b_l(cpu);
 
     case 0x46: /* LD B,(HL) */
-      cpu->regs.b = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
-      return 8;
+      return LD_b_hl(cpu);
 
     case 0x47: /* LD B,A */
-      cpu->regs.b = cpu->regs.a;
-      return 4;
+      return LD_b_a(cpu);
 
     case 0x48: /* LD C,B */
-      cpu->regs.c = cpu->regs.b;
-      return 4;
+      return LD_c_b(cpu);
 
     case 0x49: /* LD C,C */
-      cpu->regs.c = cpu->regs.c;
-      return 4;
+      return NOP();
 
     case 0x4A: /* LD C,D */
-      cpu->regs.c = cpu->regs.d;
-      return 4;
+      return LD_c_d(cpu);
 
     case 0x4B: /* LD C,E */
-      cpu->regs.c = cpu->regs.e;
-      return 4;
+      return LD_c_e(cpu);
 
     case 0x4C: /* LD C,H */
-      cpu->regs.c = cpu->regs.h;
-      return 4;
+      return LD_c_h(cpu);
 
     case 0x4D: /* LD C,L */
-      cpu->regs.c = cpu->regs.l;
-      return 4;
+      return LD_c_l(cpu);
 
     case 0x4E: /* LD C,(HL) */
-      cpu->regs.c = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
-      return 8;
+      return LD_c_hl(cpu);
 
     case 0x4F: /* LD C,A */
-      cpu->regs.c = cpu->regs.a;
-      return 4;
+      return LD_c_a(cpu);
 
     case 0x50: /* LD D,B */
-      cpu->regs.d = cpu->regs.b;
-      return 4;
+      return LD_d_b(cpu);
 
     case 0x51: /* LD D,C */
-      cpu->regs.d = cpu->regs.c;
-      return 4;
+      return LD_d_c(cpu);
 
     case 0x52: /* LD D,D */
-      cpu->regs.d = cpu->regs.d;
-      return 4;
+      return NOP();
 
     case 0x53: /* LD D,E */
-      cpu->regs.d = cpu->regs.e;
-      return 4;
+      return LD_d_e(cpu);
 
     case 0x54: /* LD D,H */
-      cpu->regs.d = cpu->regs.h;
-      return 4;
+      return LD_d_h(cpu);
 
     case 0x55: /* LD D,L */
-      cpu->regs.d = cpu->regs.l;
-      return 4;
+      return LD_d_l(cpu);
 
     case 0x56: /* LD D,(HL) */
-      cpu->regs.d = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
-      return 8;
+      return LD_d_hl(cpu);
 
     case 0x57: /* LD D,A */
-      cpu->regs.d = cpu->regs.a;
-      return 4;
+      return LD_d_a(cpu);
 
     case 0x58: /* LD E,B */
-      cpu->regs.e = cpu->regs.b;
-      return 4;
+      return LD_e_b(cpu);
 
     case 0x59: /* LD E,C */
-      cpu->regs.e = cpu->regs.c;
-      return 4;
+      return LD_e_c(cpu);
 
     case 0x5A: /* LD E,D */
-      cpu->regs.e = cpu->regs.d;
-      return 4;
+      return LD_e_d(cpu);
 
     case 0x5B: /* LD E,E */
-      cpu->regs.e = cpu->regs.e;
-      return 4;
+      return NOP();
 
     case 0x5C: /* LD E,H */
-      cpu->regs.e = cpu->regs.h;
-      return 4;
+      return LD_e_h(cpu);
 
     case 0x5D: /* LD E,L */
-      cpu->regs.e = cpu->regs.l;
-      return 4;
+      return LD_e_l(cpu);
 
     case 0x5E: /* LD E,(HL) */
-      cpu->regs.e = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
-      return 8;
+      return LD_e_hl(cpu);
 
     case 0x5F: /* LD E,A */
-      cpu->regs.e = cpu->regs.a;
-      return 4;
+      return LD_e_a(cpu);
 
     case 0x60: /* LD H,B */
-      cpu->regs.h = cpu->regs.b;
-      return 4;
+      return LD_h_b(cpu);
 
     case 0x61: /* LD H,C */
-      cpu->regs.h = cpu->regs.c;
-      return 4;
+      return LD_h_c(cpu);
 
     case 0x62: /* LD H,D */
-      cpu->regs.h = cpu->regs.d;
-      return 4;
+      return LD_h_d(cpu);
 
     case 0x63: /* LD H,E */
-      cpu->regs.h = cpu->regs.e;
-      return 4;
+      return LD_h_e(cpu);
 
     case 0x64: /* LD H,H */
-      cpu->regs.h = cpu->regs.h;
-      return 4;
+      return NOP();
 
     case 0x65: /* LD H,L */
-      cpu->regs.h = cpu->regs.l;
-      return 4;
+      return LD_h_l(cpu);
 
     case 0x66: /* LD H,(HL) */
-      cpu->regs.h = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
-      return 8;
+      return LD_h_hl(cpu);
 
     case 0x67: /* LD H,A */
-      cpu->regs.h = cpu->regs.a;
-      return 4;
+      return LD_h_a(cpu);
 
     case 0x68: /* LD L,B */
-      cpu->regs.l = cpu->regs.b;
-      return 4;
+      return LD_l_b(cpu);
 
     case 0x69: /* LD L,C */
-      cpu->regs.l = cpu->regs.c;
-      return 4;
+      return LD_l_c(cpu);
 
     case 0x6A: /* LD L,D */
-      cpu->regs.l = cpu->regs.d;
-      return 4;
+      return LD_l_d(cpu);
 
     case 0x6B: /* LD L,E */
-      cpu->regs.l = cpu->regs.e;
-      return 4;
+      return LD_l_e(cpu);
 
     case 0x6C: /* LD L,H */
-      cpu->regs.l = cpu->regs.h;
-      return 4;
+      return LD_l_h(cpu);
 
     case 0x6D: /* LD L,L */
-      cpu->regs.l = cpu->regs.l;
-      return 4;
+      return NOP();
 
     case 0x6E: /* LD L,(HL) */
-      cpu->regs.l = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
-      return 8;
+      return LD_l_hl(cpu);
 
     case 0x6F: /* LD L,A */
-      cpu->regs.l = cpu->regs.a;
-      return 4;
+      return LD_l_a(cpu);
 
     case 0x70: /* LD (HL),B */
-      mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.b);
-      return 8;
+      return LD_hl_b(cpu);
 
     case 0x71: /* LD (HL),C */
-      mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.c);
-      return 8;
+      return LD_hl_c(cpu);
 
     case 0x72: /* LD (HL),D */
-      mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.d);
-      return 8;
+      return LD_hl_d(cpu);
 
     case 0x73: /* LD (HL),E */
-      mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.e);
-      return 8;
+      return LD_hl_e(cpu);
 
     case 0x74: /* LD (HL),H */
-      mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.h);
-      return 8;
+      return LD_hl_h(cpu);
 
     case 0x75: /* LD (HL),L */
-      mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.l);
-      return 8;
+      return LD_hl_l(cpu);
 
     case 0x76: /* HALT */
-      cpu->halt = true;
-      return 4;
+      return HALT(cpu);
 
     case 0x77: /* LD (HL),A */
-      mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.a);
-      return 8;
+      return LD_hl_a(cpu);
 
     case 0x78: /* LD A,B */
-      cpu->regs.a = cpu->regs.b;
-      return 4;
+      return LD_a_b(cpu);
 
     case 0x79: /* LD A,C */
-      cpu->regs.a = cpu->regs.c;
-      return 4;
+      return LD_a_c(cpu);
 
     case 0x7A: /* LD A,D */
-      cpu->regs.a = cpu->regs.d;
-      return 4;
+      return LD_a_d(cpu);
 
     case 0x7B: /* LD A,E */
-      cpu->regs.a = cpu->regs.e;
-      return 4;
+      return LD_a_e(cpu);
 
     case 0x7C: /* LD A,H */
-      cpu->regs.a = cpu->regs.h;
-      return 4;
+      return LD_a_h(cpu);
 
     case 0x7D: /* LD A,L */
-      cpu->regs.a = cpu->regs.l;
-      return 4;
+      return LD_a_l(cpu);
 
     case 0x7E: /* LD A,(HL) */
-      cpu->regs.a = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);
-      return 8;
+      return LD_a_hl(cpu);
 
     case 0x7F: /* LD A,A */
-      cpu->regs.a = cpu->regs.a;
-      return 4;
+      return NOP();
 
     case 0x80: /* ADD A,B */
       return ADD(cpu, cpu->regs.b);
