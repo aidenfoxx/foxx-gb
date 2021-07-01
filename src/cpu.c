@@ -75,7 +75,7 @@ unsigned cpuGetFlag(CPU *cpu, unsigned flag)
 {
 	switch (flag) {
 		case FLAG_Z:
-			return cpu->regs.f >> 7;
+			return cpu->regs.f >> 7; // TODO: Prefer & 0x80
 
 		case FLAG_N:
 			return (cpu->regs.f >> 6) & 0x1;
