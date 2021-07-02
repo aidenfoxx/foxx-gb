@@ -293,11 +293,6 @@ static uint8_t INC(CPU *cpu, uint8_t op)
   return op;
 }
 
-static uint16_t INC_W(uint16_t op)
-{
-  return ++op;
-}
-
 static uint8_t DEC(CPU *cpu, uint8_t op)
 {
   uint8_t result = op - 1;
@@ -307,11 +302,6 @@ static uint8_t DEC(CPU *cpu, uint8_t op)
   cpuSetFlag(cpu, FLAG_H, (result & 0xF) == 0xF);
 
   return result;
-}
-
-static uint16_t DEC_W(uint16_t op)
-{
-  return --op;
 }
 /* END TODO: Do these after macro */
 
@@ -358,6 +348,58 @@ static uint8_t SUB(CPU *cpu, uint8_t op, uint8_t carry, bool store)
   }
 
   return 4;
+}
+
+#define DEF_INC_B(A)\
+static uint8_t INC_##A(CPU *cpu)\
+{\
+  cpu->regs.A++;\
+  cpuSetFlag(cpu, FLAG_Z, !cpu->regs.A);\
+  cpuSetFlag(cpu, FLAG_N, false);\
+  cpuSetFlag(cpu, FLAG_H, !(cpu->regs.A & 0xF));\
+  return 4;\
+}
+
+#define DEF_INC_W(A, B)\
+static uint8_t INC_##A##B(CPU *cpu)\
+{\
+  uint16_t result = (cpu->regs.A << 8) + cpu->regs.B + 1;\
+  cpu->regs.A = result >> 8;\
+  cpu->regs.B = result;\
+  return 8;\
+}
+
+#define DEF_INC_SP()\
+static uint8_t INC_sp(CPU *cpu)\
+{\
+  cpu->regs.sp += 1;\
+  return 8;\
+}
+
+#define DEF_DEC_B(A)\
+static uint8_t DEC_##A(CPU *cpu)\
+{\
+  cpu->regs.A--;\
+  cpuSetFlag(cpu, FLAG_Z, !cpu->regs.A);\
+  cpuSetFlag(cpu, FLAG_N, true);\
+  cpuSetFlag(cpu, FLAG_H, (cpu->regs.A & 0xF) == 0xF);\
+  return 4;\
+}
+
+#define DEF_DEC_W(A, B)\
+static uint8_t DEC_##A##B(CPU *cpu)\
+{\
+  uint16_t result = (cpu->regs.A << 8) + cpu->regs.B - 1;\
+  cpu->regs.A = result >> 8;\
+  cpu->regs.B = result;\
+  return 8;\
+}
+
+#define DEF_DEC_SP()\
+static uint8_t DEC_sp(CPU *cpu)\
+{\
+  cpu->regs.sp--;\
+  return 8;\
 }
 
 #define DEF_ADD_B(A)\
@@ -427,6 +469,32 @@ static uint8_t CP_d8(CPU *cpu)\
   cpu->regs.pc++;\
   return cycles + 4;\
 }
+
+DEF_INC_W(b, c)
+DEF_INC_W(d, e)
+DEF_INC_W(h, l)
+DEF_INC_SP()
+
+DEF_INC_B(b)
+DEF_INC_B(c)
+DEF_INC_B(d)
+DEF_INC_B(e)
+DEF_INC_B(h)
+DEF_INC_B(l)
+DEF_INC_B(a)
+
+DEF_DEC_W(b, c)
+DEF_DEC_W(d, e)
+DEF_DEC_W(h, l)
+DEF_DEC_SP()
+
+DEF_DEC_B(b)
+DEF_DEC_B(c)
+DEF_DEC_B(d)
+DEF_DEC_B(e)
+DEF_DEC_B(h)
+DEF_DEC_B(l)
+DEF_DEC_B(a)
 
 DEF_ADD_B(b)
 DEF_ADD_B(c)
@@ -871,20 +939,13 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return 8;
 
     case 0x3: /* INC BC */
-    {
-      uint16_t val = INC_W((cpu->regs.b << 8) + cpu->regs.c);
-      cpu->regs.b = val >> 8;
-      cpu->regs.c = val;
-      return 8;
-    }
+      return INC_bc(cpu);
 
     case 0x4: /* INC B */
-      cpu->regs.b = INC(cpu, cpu->regs.b);
-      return 4;
+      return INC_b(cpu);
 
     case 0x5: /* DEC B */
-      cpu->regs.b = DEC(cpu, cpu->regs.b);
-      return 4;
+      return DEC_b(cpu);
 
     case 0x6: /* LD B,d8 */
       cpu->regs.b = mmuReadByte(cpu->mmu, cpu->regs.pc);
@@ -909,20 +970,13 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return 8;
 
     case 0xB: /* DEC BC */
-    {
-      uint16_t val = DEC_W((cpu->regs.b << 8) + cpu->regs.c);
-      cpu->regs.b = val >> 8;
-      cpu->regs.c = val;
-      return 8;
-    }
+      return DEC_bc(cpu);
 
     case 0xC: /* INC C */
-      cpu->regs.c = INC(cpu, cpu->regs.c);
-      return 4;
+      return INC_c(cpu);
 
     case 0xD: /* DEC C */
-      cpu->regs.c = DEC(cpu, cpu->regs.c);
-      return 4;
+      return DEC_c(cpu);
 
     case 0xE: /* LD C,d8 */
       cpu->regs.c = mmuReadByte(cpu->mmu, cpu->regs.pc);
@@ -951,20 +1005,13 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return 8;
 
     case 0x13: /* INC DE */
-    {
-      uint16_t val = INC_W((cpu->regs.d << 8) + cpu->regs.e);
-      cpu->regs.d = val >> 8;
-      cpu->regs.e = val;
-      return 8;
-    }
+      return INC_de(cpu);
 
     case 0x14: /* INC D */
-      cpu->regs.d = INC(cpu, cpu->regs.d);
-      return 4;
+      return INC_d(cpu);
 
     case 0x15: /* DEC D */
-      cpu->regs.d = DEC(cpu, cpu->regs.d);
-      return 4;
+      return DEC_d(cpu);
 
     case 0x16: /* LD D,d8 */
       cpu->regs.d = mmuReadByte(cpu->mmu, cpu->regs.pc); cpu->regs.pc++;
@@ -986,20 +1033,13 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return 8;
 
     case 0x1B: /* DEC DE */
-    {
-      uint16_t val = DEC_W((cpu->regs.d << 8) + cpu->regs.e);
-      cpu->regs.d = val >> 8;
-      cpu->regs.e = val;
-      return 8;
-    }
+      return DEC_de(cpu);
 
     case 0x1C: /* INC E */
-      cpu->regs.e = INC(cpu, cpu->regs.e);
-      return 4;
+      return INC_e(cpu);
 
     case 0x1D: /* DEC E */
-      cpu->regs.e = DEC(cpu, cpu->regs.e);
-      return 4;
+      return DEC_e(cpu);
 
     case 0x1E: /* LD E,d8 */
       cpu->regs.e = mmuReadByte(cpu->mmu, cpu->regs.pc); cpu->regs.pc++;
@@ -1036,20 +1076,13 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     }
 
     case 0x23: /* INC HL */
-    {
-      uint16_t val = INC_W((cpu->regs.h << 8) + cpu->regs.l);
-      cpu->regs.h = val >> 8;
-      cpu->regs.l = val;
-      return 8;
-    }
+      return INC_hl(cpu);
 
     case 0x24: /* INC H */
-      cpu->regs.h = INC(cpu, cpu->regs.h);
-      return 4;
+      return INC_h(cpu);
 
     case 0x25: /* DEC H */
-      cpu->regs.h = DEC(cpu, cpu->regs.h);
-      return 4;
+      return DEC_h(cpu);
 
     case 0x26: /* LD H,d8 */
       cpu->regs.h = mmuReadByte(cpu->mmu, cpu->regs.pc);
@@ -1099,20 +1132,13 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     }
 
     case 0x2B: /* DEC HL */
-    {
-      uint16_t val = DEC_W((cpu->regs.h << 8) + cpu->regs.l);
-      cpu->regs.h = val >> 8;
-      cpu->regs.l = val;
-      return 8;
-    }
+      return DEC_hl(cpu);
 
     case 0x2C: /* INC L */
-      cpu->regs.l = INC(cpu, cpu->regs.l);
-      return 4;
+      return INC_l(cpu);
 
     case 0x2D: /* DEC L */
-      cpu->regs.l = DEC(cpu, cpu->regs.l);
-      return 4;
+      return DEC_l(cpu);
 
     case 0x2E: /* LD L,d8 */
       cpu->regs.l = mmuReadByte(cpu->mmu, cpu->regs.pc);
@@ -1147,8 +1173,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     }
 
     case 0x33: /* INC SP */
-      cpu->regs.sp = INC_W(cpu->regs.sp);
-      return 8;
+      return INC_sp(cpu);
 
     case 0x34: /* INC (HL) */
     {
@@ -1195,16 +1220,13 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
     }
 
     case 0x3B: /* DEC SP */
-      cpu->regs.sp = DEC_W(cpu->regs.sp);
-      return 8;
+      return DEC_sp(cpu);
 
     case 0x3C: /* INC A */
-      cpu->regs.a = INC(cpu, cpu->regs.a);
-      return 4;
+      return INC_a(cpu);
 
     case 0x3D: /* DEC A */
-      cpu->regs.a = DEC(cpu, cpu->regs.a);
-      return 4;
+      return DEC_a(cpu);
 
     case 0x3E: /* LD A,d8 */
       cpu->regs.a = mmuReadByte(cpu->mmu, cpu->regs.pc);
