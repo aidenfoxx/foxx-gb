@@ -183,6 +183,13 @@ DEF_OP_NC(JR)
 
 /**
  * TODO: These _B and _HL functions could be simplified by passing a ref instead.
+ *
+ * SWAP(CPU*, uint8_t*)
+ * DEF_SWAP_B(cpu) { return SWAP(cpu, &cpu->regs.A); }
+ * DEF_SWAP_HL(cpu) { uint8_t val = mmuReadByte(hl); return SWAP(cpu, &val); mmuWriteByte(hl, val); }
+ *
+ * Maybe all DEF_OP_B() functions should accept a reference that can be ignored by the implementing function?
+ * It could make it flexible enough to use for more functions.
  */
 #define DEF_RLC_B(A)\
 static uint8_t RLC_##A(CPU *cpu)\
@@ -197,14 +204,6 @@ static uint8_t RLC_##A(CPU *cpu)\
 \
   return 8;\
 }
-
-DEF_RLC_B(b)
-DEF_RLC_B(c)
-DEF_RLC_B(d)
-DEF_RLC_B(e)
-DEF_RLC_B(h)
-DEF_RLC_B(l)
-DEF_RLC_B(a)
 
 static uint8_t RLC_hl(CPU *cpu)
 {
@@ -223,6 +222,21 @@ static uint8_t RLC_hl(CPU *cpu)
   return 16;
 }
 
+DEF_RLC_B(b)
+DEF_RLC_B(c)
+DEF_RLC_B(d)
+DEF_RLC_B(e)
+DEF_RLC_B(h)
+DEF_RLC_B(l)
+DEF_RLC_B(a)
+
+static uint8_t RLCA(CPU *cpu)
+{
+  RLC_a(cpu);
+  cpuSetFlag(cpu, FLAG_Z, false);
+  return 4;
+}
+
 #define DEF_RRC_B(A)\
 static uint8_t RRC_##A(CPU *cpu)\
 {\
@@ -236,14 +250,6 @@ static uint8_t RRC_##A(CPU *cpu)\
 \
   return 8;\
 }
-
-DEF_RRC_B(b)
-DEF_RRC_B(c)
-DEF_RRC_B(d)
-DEF_RRC_B(e)
-DEF_RRC_B(h)
-DEF_RRC_B(l)
-DEF_RRC_B(a)
 
 static uint8_t RRC_hl(CPU *cpu)
 {
@@ -262,6 +268,21 @@ static uint8_t RRC_hl(CPU *cpu)
   return 16;
 }
 
+DEF_RRC_B(b)
+DEF_RRC_B(c)
+DEF_RRC_B(d)
+DEF_RRC_B(e)
+DEF_RRC_B(h)
+DEF_RRC_B(l)
+DEF_RRC_B(a)
+
+static uint8_t RRCA(CPU *cpu)
+{
+  RRC_a(cpu);
+  cpuSetFlag(cpu, FLAG_Z, false);
+  return 4;
+}
+
 #define DEF_RL_B(A)\
 static uint8_t RL_##A(CPU *cpu)\
 {\
@@ -275,14 +296,6 @@ static uint8_t RL_##A(CPU *cpu)\
 \
   return 8;\
 }
-
-DEF_RL_B(b)
-DEF_RL_B(c)
-DEF_RL_B(d)
-DEF_RL_B(e)
-DEF_RL_B(h)
-DEF_RL_B(l)
-DEF_RL_B(a)
 
 static uint8_t RL_hl(CPU *cpu)
 {
@@ -301,6 +314,21 @@ static uint8_t RL_hl(CPU *cpu)
   return 8;
 }
 
+DEF_RL_B(b)
+DEF_RL_B(c)
+DEF_RL_B(d)
+DEF_RL_B(e)
+DEF_RL_B(h)
+DEF_RL_B(l)
+DEF_RL_B(a)
+
+static uint8_t RLA(CPU *cpu)
+{
+  RL_a(cpu);
+  cpuSetFlag(cpu, FLAG_Z, false);
+  return 4;
+}
+
 #define DEF_RR_B(A)\
 static uint8_t RR_##A(CPU *cpu)\
 {\
@@ -314,14 +342,6 @@ static uint8_t RR_##A(CPU *cpu)\
 \
   return 8;\
 }
-
-DEF_RR_B(b)
-DEF_RR_B(c)
-DEF_RR_B(d)
-DEF_RR_B(e)
-DEF_RR_B(h)
-DEF_RR_B(l)
-DEF_RR_B(a)
 
 static uint8_t RR_hl(CPU *cpu)
 {
@@ -340,6 +360,21 @@ static uint8_t RR_hl(CPU *cpu)
   return 8;
 }
 
+DEF_RR_B(b)
+DEF_RR_B(c)
+DEF_RR_B(d)
+DEF_RR_B(e)
+DEF_RR_B(h)
+DEF_RR_B(l)
+DEF_RR_B(a)
+
+static uint8_t RRA(CPU *cpu)
+{
+  RR_a(cpu);
+  cpuSetFlag(cpu, FLAG_Z, false);
+  return 4;
+}
+
 #define DEF_SLA_B(A)\
 static uint8_t SLA_##A(CPU *cpu)\
 {\
@@ -351,14 +386,6 @@ static uint8_t SLA_##A(CPU *cpu)\
 \
   return 8;\
 }
-
-DEF_SLA_B(b)
-DEF_SLA_B(c)
-DEF_SLA_B(d)
-DEF_SLA_B(e)
-DEF_SLA_B(h)
-DEF_SLA_B(l)
-DEF_SLA_B(a)
 
 static uint8_t SLA_hl(CPU *cpu)
 {
@@ -376,6 +403,14 @@ static uint8_t SLA_hl(CPU *cpu)
   return 8;
 }
 
+DEF_SLA_B(b)
+DEF_SLA_B(c)
+DEF_SLA_B(d)
+DEF_SLA_B(e)
+DEF_SLA_B(h)
+DEF_SLA_B(l)
+DEF_SLA_B(a)
+
 #define DEF_SRA_B(A)\
 static uint8_t SRA_##A(CPU *cpu)\
 {\
@@ -388,14 +423,6 @@ static uint8_t SRA_##A(CPU *cpu)\
 \
   return 8;\
 }
-
-DEF_SRA_B(b)
-DEF_SRA_B(c)
-DEF_SRA_B(d)
-DEF_SRA_B(e)
-DEF_SRA_B(h)
-DEF_SRA_B(l)
-DEF_SRA_B(a)
 
 static uint8_t SRA_hl(CPU *cpu)
 {
@@ -414,6 +441,14 @@ static uint8_t SRA_hl(CPU *cpu)
   return 16;
 }
 
+DEF_SRA_B(b)
+DEF_SRA_B(c)
+DEF_SRA_B(d)
+DEF_SRA_B(e)
+DEF_SRA_B(h)
+DEF_SRA_B(l)
+DEF_SRA_B(a)
+
 #define DEF_SWAP_B(A)\
 static uint8_t SWAP_##A(CPU *cpu)\
 {\
@@ -426,14 +461,6 @@ static uint8_t SWAP_##A(CPU *cpu)\
 \
   return 8;\
 }
-
-DEF_SWAP_B(b)
-DEF_SWAP_B(c)
-DEF_SWAP_B(d)
-DEF_SWAP_B(e)
-DEF_SWAP_B(h)
-DEF_SWAP_B(l)
-DEF_SWAP_B(a)
 
 static uint8_t SWAP_hl(CPU *cpu)
 {
@@ -452,6 +479,14 @@ static uint8_t SWAP_hl(CPU *cpu)
   return 16;
 }
 
+DEF_SWAP_B(b)
+DEF_SWAP_B(c)
+DEF_SWAP_B(d)
+DEF_SWAP_B(e)
+DEF_SWAP_B(h)
+DEF_SWAP_B(l)
+DEF_SWAP_B(a)
+
 #define DEF_SRL_B(A)\
 static uint8_t SRL_##A(CPU *cpu)\
 {\
@@ -463,14 +498,6 @@ static uint8_t SRL_##A(CPU *cpu)\
 \
   return 8;\
 }
-
-DEF_SRL_B(b)
-DEF_SRL_B(c)
-DEF_SRL_B(d)
-DEF_SRL_B(e)
-DEF_SRL_B(h)
-DEF_SRL_B(l)
-DEF_SRL_B(a)
 
 static uint8_t SRL_hl(CPU *cpu)
 {
@@ -487,6 +514,14 @@ static uint8_t SRL_hl(CPU *cpu)
 
   return 16;
 }
+
+DEF_SRL_B(b)
+DEF_SRL_B(c)
+DEF_SRL_B(d)
+DEF_SRL_B(e)
+DEF_SRL_B(h)
+DEF_SRL_B(l)
+DEF_SRL_B(a)
 
 static uint8_t BIT(CPU *cpu, uint8_t a, uint8_t b)
 {
@@ -856,7 +891,7 @@ DEF_LD_B_HL(a)
  * Arithmetic operations
  */
 /* TODO: Remove these after macro */
-static uint8_t INC_hl_p(CPU *cpu) // TODO: This naming sucks
+static uint8_t INC_$hl(CPU *cpu) // TODO: This naming sucks
 {
   uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
   uint8_t result = mmuReadByte(cpu->mmu, addr) + 1;
@@ -869,7 +904,7 @@ static uint8_t INC_hl_p(CPU *cpu) // TODO: This naming sucks
   return 12;
 }
 
-static uint8_t DEC_hl_p(CPU *cpu) // TODO: This naming sucks
+static uint8_t DEC_$hl(CPU *cpu) // TODO: This naming sucks
 {
   uint16_t addr = (cpu->regs.h << 8) + cpu->regs.l;
   uint8_t result = mmuReadByte(cpu->mmu, addr) - 1;
@@ -1164,262 +1199,262 @@ DEF_OP_B(XOR, a)
  * Opcode definitions.
  */
 static uint8_t (*cpuOpsCB[256])(CPU*) = {
-  &RLC_b, // RLC B
-  &RLC_c, // RLC C
-  &RLC_d, // RLC D
-  &RLC_e, // RLC E
-  &RLC_h, // RLC H
-  &RLC_l, // RLC L
-  &RLC_hl, // RLC (HL)
-  &RLC_a, // RLC A
-  &RRC_b, // RRC B
-  &RRC_c, // RRC C
-  &RRC_d, // RRC D
-  &RRC_e, // RRC E
-  &RRC_h, // RRC H
-  &RRC_l, // RRC L
-  &RRC_hl, // RRC (HL)
-  &RRC_a, // RRC A
-  &RL_b, // RL B
-  &RL_c, // RL C
-  &RL_d, // RL D
-  &RL_e, // RL E
-  &RL_h, // RL H
-  &RL_l, // RL L
-  &RL_hl, // RL (HL)
-  &RL_a, // RL A
-  &RR_b, // RR B
-  &RR_c, // RR C
-  &RR_d, // RR D
-  &RR_e, // RR E
-  &RR_h, // RR H
-  &RR_l, // RR L
-  &RR_hl, // RR (HL)
-  &RR_a, // RR A
-  &SLA_b, // SLA B
-  &SLA_c, // SLA C
-  &SLA_d, // SLA D
-  &SLA_e, // SLA E
-  &SLA_h, // SLA H
-  &SLA_l, // SLA L
-  &SLA_hl, // SLA (HL)
-  &SLA_a, // SLA A
-  &SRA_b, // SRA B
-  &SRA_c, // SRA C
-  &SRA_d, // SRA D
-  &SRA_e, // SRA E
-  &SRA_h, // SRA H
-  &SRA_l, // SRA L
-  &SRA_hl, // SRA (HL)
-  &SRA_a, // SRA A
-  &SWAP_b, // SWAP B
-  &SWAP_c, // SWAP C
-  &SWAP_d, // SWAP D
-  &SWAP_e, // SWAP E
-  &SWAP_h, // SWAP H
-  &SWAP_l, // SWAP L
-  &SWAP_hl, // SWAP (HL)
-  &SWAP_a, // SWAP A
-  &SRL_b, // SRL B
-  &SRL_c, // SRL C
-  &SRL_d, // SRL D
-  &SRL_e, // SRL E
-  &SRL_h, // SRL H
-  &SRL_l, // SRL L
-  &SRL_hl, // SRL (HL)
-  &SRL_a, // SRL A
-  &BIT_0_b, // BIT 0,B
-  &BIT_0_c, // BIT 0,C
-  &BIT_0_d, // BIT 0,D
-  &BIT_0_e, // BIT 0,E
-  &BIT_0_h, // BIT 0,H
-  &BIT_0_l, // BIT 0,L
+  &RLC_b,    // RLC B
+  &RLC_c,    // RLC C
+  &RLC_d,    // RLC D
+  &RLC_e,    // RLC E
+  &RLC_h,    // RLC H
+  &RLC_l,    // RLC L
+  &RLC_hl,   // RLC (HL)
+  &RLC_a,    // RLC A
+  &RRC_b,    // RRC B
+  &RRC_c,    // RRC C
+  &RRC_d,    // RRC D
+  &RRC_e,    // RRC E
+  &RRC_h,    // RRC H
+  &RRC_l,    // RRC L
+  &RRC_hl,   // RRC (HL)
+  &RRC_a,    // RRC A
+  &RL_b,     // RL B
+  &RL_c,     // RL C
+  &RL_d,     // RL D
+  &RL_e,     // RL E
+  &RL_h,     // RL H
+  &RL_l,     // RL L
+  &RL_hl,    // RL (HL)
+  &RL_a,     // RL A
+  &RR_b,     // RR B
+  &RR_c,     // RR C
+  &RR_d,     // RR D
+  &RR_e,     // RR E
+  &RR_h,     // RR H
+  &RR_l,     // RR L
+  &RR_hl,    // RR (HL)
+  &RR_a,     // RR A
+  &SLA_b,    // SLA B
+  &SLA_c,    // SLA C
+  &SLA_d,    // SLA D
+  &SLA_e,    // SLA E
+  &SLA_h,    // SLA H
+  &SLA_l,    // SLA L
+  &SLA_hl,   // SLA (HL)
+  &SLA_a,    // SLA A
+  &SRA_b,    // SRA B
+  &SRA_c,    // SRA C
+  &SRA_d,    // SRA D
+  &SRA_e,    // SRA E
+  &SRA_h,    // SRA H
+  &SRA_l,    // SRA L
+  &SRA_hl,   // SRA (HL)
+  &SRA_a,    // SRA A
+  &SWAP_b,   // SWAP B
+  &SWAP_c,   // SWAP C
+  &SWAP_d,   // SWAP D
+  &SWAP_e,   // SWAP E
+  &SWAP_h,   // SWAP H
+  &SWAP_l,   // SWAP L
+  &SWAP_hl,  // SWAP (HL)
+  &SWAP_a,   // SWAP A
+  &SRL_b,    // SRL B
+  &SRL_c,    // SRL C
+  &SRL_d,    // SRL D
+  &SRL_e,    // SRL E
+  &SRL_h,    // SRL H
+  &SRL_l,    // SRL L
+  &SRL_hl,   // SRL (HL)
+  &SRL_a,    // SRL A
+  &BIT_0_b,  // BIT 0,B
+  &BIT_0_c,  // BIT 0,C
+  &BIT_0_d,  // BIT 0,D
+  &BIT_0_e,  // BIT 0,E
+  &BIT_0_h,  // BIT 0,H
+  &BIT_0_l,  // BIT 0,L
   &BIT_0_hl, // BIT 0,(HL)
-  &BIT_0_a, // BIT 0,A
-  &BIT_1_b, // BIT 1,B
-  &BIT_1_c, // BIT 1,C
-  &BIT_1_d, // BIT 1,D
-  &BIT_1_e, // BIT 1,E
-  &BIT_1_h, // BIT 1,H
-  &BIT_1_l, // BIT 1,L
+  &BIT_0_a,  // BIT 0,A
+  &BIT_1_b,  // BIT 1,B
+  &BIT_1_c,  // BIT 1,C
+  &BIT_1_d,  // BIT 1,D
+  &BIT_1_e,  // BIT 1,E
+  &BIT_1_h,  // BIT 1,H
+  &BIT_1_l,  // BIT 1,L
   &BIT_1_hl, // BIT 1,(HL)
-  &BIT_1_a, // BIT 1,A
-  &BIT_2_b, // BIT 2,B
-  &BIT_2_c, // BIT 2,C
-  &BIT_2_d, // BIT 2,D
-  &BIT_2_e, // BIT 2,E
-  &BIT_2_h, // BIT 2,H
-  &BIT_2_l, // BIT 2,L
+  &BIT_1_a,  // BIT 1,A
+  &BIT_2_b,  // BIT 2,B
+  &BIT_2_c,  // BIT 2,C
+  &BIT_2_d,  // BIT 2,D
+  &BIT_2_e,  // BIT 2,E
+  &BIT_2_h,  // BIT 2,H
+  &BIT_2_l,  // BIT 2,L
   &BIT_2_hl, // BIT 2,(HL)
-  &BIT_2_a, // BIT 2,A
-  &BIT_3_b, // BIT 3,B
-  &BIT_3_c, // BIT 3,C
-  &BIT_3_d, // BIT 3,D
-  &BIT_3_e, // BIT 3,E
-  &BIT_3_h, // BIT 3,H
-  &BIT_3_l, // BIT 3,L
+  &BIT_2_a,  // BIT 2,A
+  &BIT_3_b,  // BIT 3,B
+  &BIT_3_c,  // BIT 3,C
+  &BIT_3_d,  // BIT 3,D
+  &BIT_3_e,  // BIT 3,E
+  &BIT_3_h,  // BIT 3,H
+  &BIT_3_l,  // BIT 3,L
   &BIT_3_hl, // BIT 3,(HL)
-  &BIT_3_a, // BIT 3,A
-  &BIT_4_b, // BIT 4,B
-  &BIT_4_c, // BIT 4,C
-  &BIT_4_d, // BIT 4,D
-  &BIT_4_e, // BIT 4,E
-  &BIT_4_h, // BIT 4,H
-  &BIT_4_l, // BIT 4,L
+  &BIT_3_a,  // BIT 3,A
+  &BIT_4_b,  // BIT 4,B
+  &BIT_4_c,  // BIT 4,C
+  &BIT_4_d,  // BIT 4,D
+  &BIT_4_e,  // BIT 4,E
+  &BIT_4_h,  // BIT 4,H
+  &BIT_4_l,  // BIT 4,L
   &BIT_4_hl, // BIT 4,(HL)
-  &BIT_4_a, // BIT 4,A
-  &BIT_5_b, // BIT 5,B
-  &BIT_5_c, // BIT 5,C
-  &BIT_5_d, // BIT 5,D
-  &BIT_5_e, // BIT 5,E
-  &BIT_5_h, // BIT 5,H
-  &BIT_5_l, // BIT 5,L
+  &BIT_4_a,  // BIT 4,A
+  &BIT_5_b,  // BIT 5,B
+  &BIT_5_c,  // BIT 5,C
+  &BIT_5_d,  // BIT 5,D
+  &BIT_5_e,  // BIT 5,E
+  &BIT_5_h,  // BIT 5,H
+  &BIT_5_l,  // BIT 5,L
   &BIT_5_hl, // BIT 5,(HL)
-  &BIT_5_a, // BIT 5,A
-  &BIT_6_b, // BIT 6,B
-  &BIT_6_c, // BIT 6,C
-  &BIT_6_d, // BIT 6,D
-  &BIT_6_e, // BIT 6,E
-  &BIT_6_h, // BIT 6,H
-  &BIT_6_l, // BIT 6,L
+  &BIT_5_a,  // BIT 5,A
+  &BIT_6_b,  // BIT 6,B
+  &BIT_6_c,  // BIT 6,C
+  &BIT_6_d,  // BIT 6,D
+  &BIT_6_e,  // BIT 6,E
+  &BIT_6_h,  // BIT 6,H
+  &BIT_6_l,  // BIT 6,L
   &BIT_6_hl, // BIT 6,(HL)
-  &BIT_6_a, // BIT 6,A
-  &BIT_7_b, // BIT 7,B
-  &BIT_7_c, // BIT 7,C
-  &BIT_7_d, // BIT 7,D
-  &BIT_7_e, // BIT 7,E
-  &BIT_7_h, // BIT 7,H
-  &BIT_7_l, // BIT 7,L
+  &BIT_6_a,  // BIT 6,A
+  &BIT_7_b,  // BIT 7,B
+  &BIT_7_c,  // BIT 7,C
+  &BIT_7_d,  // BIT 7,D
+  &BIT_7_e,  // BIT 7,E
+  &BIT_7_h,  // BIT 7,H
+  &BIT_7_l,  // BIT 7,L
   &BIT_7_hl, // BIT 7,(HL)
-  &BIT_7_a, // BIT 7,A
-  &RES_0_b, // RES 0,B
-  &RES_0_c, // RES 0,C
-  &RES_0_d, // RES 0,D
-  &RES_0_e, // RES 0,E
-  &RES_0_h, // RES 0,H
-  &RES_0_l, // RES 0,L
+  &BIT_7_a,  // BIT 7,A
+  &RES_0_b,  // RES 0,B
+  &RES_0_c,  // RES 0,C
+  &RES_0_d,  // RES 0,D
+  &RES_0_e,  // RES 0,E
+  &RES_0_h,  // RES 0,H
+  &RES_0_l,  // RES 0,L
   &RES_0_hl, // RES 0,(HL)
-  &RES_0_a, // RES 0,A
-  &RES_1_b, // RES 1,B
-  &RES_1_c, // RES 1,C
-  &RES_1_d, // RES 1,D
-  &RES_1_e, // RES 1,E
-  &RES_1_h, // RES 1,H
-  &RES_1_l, // RES 1,L
+  &RES_0_a,  // RES 0,A
+  &RES_1_b,  // RES 1,B
+  &RES_1_c,  // RES 1,C
+  &RES_1_d,  // RES 1,D
+  &RES_1_e,  // RES 1,E
+  &RES_1_h,  // RES 1,H
+  &RES_1_l,  // RES 1,L
   &RES_1_hl, // RES 1,(HL)
-  &RES_1_a, // RES 1,A
-  &RES_2_b, // RES 2,B
-  &RES_2_c, // RES 2,C
-  &RES_2_d, // RES 2,D
-  &RES_2_e, // RES 2,E
-  &RES_2_h, // RES 2,H
-  &RES_2_l, // RES 2,L
+  &RES_1_a,  // RES 1,A
+  &RES_2_b,  // RES 2,B
+  &RES_2_c,  // RES 2,C
+  &RES_2_d,  // RES 2,D
+  &RES_2_e,  // RES 2,E
+  &RES_2_h,  // RES 2,H
+  &RES_2_l,  // RES 2,L
   &RES_2_hl, // RES 2,(HL)
-  &RES_2_a, // RES 2,A
-  &RES_3_b, // RES 3,B
-  &RES_3_c, // RES 3,C
-  &RES_3_d, // RES 3,D
-  &RES_3_e, // RES 3,E
-  &RES_3_h, // RES 3,H
-  &RES_3_l, // RES 3,L
+  &RES_2_a,  // RES 2,A
+  &RES_3_b,  // RES 3,B
+  &RES_3_c,  // RES 3,C
+  &RES_3_d,  // RES 3,D
+  &RES_3_e,  // RES 3,E
+  &RES_3_h,  // RES 3,H
+  &RES_3_l,  // RES 3,L
   &RES_3_hl, // RES 3,(HL)
-  &RES_3_a, // RES 3,A
-  &RES_4_b, // RES 4,B
-  &RES_4_c, // RES 4,C
-  &RES_4_d, // RES 4,D
-  &RES_4_e, // RES 4,E
-  &RES_4_h, // RES 4,H
-  &RES_4_l, // RES 4,L
+  &RES_3_a,  // RES 3,A
+  &RES_4_b,  // RES 4,B
+  &RES_4_c,  // RES 4,C
+  &RES_4_d,  // RES 4,D
+  &RES_4_e,  // RES 4,E
+  &RES_4_h,  // RES 4,H
+  &RES_4_l,  // RES 4,L
   &RES_4_hl, // RES 4,(HL)
-  &RES_4_a, // RES 4,A
-  &RES_5_b, // RES 5,B
-  &RES_5_c, // RES 5,C
-  &RES_5_d, // RES 5,D
-  &RES_5_e, // RES 5,E
-  &RES_5_h, // RES 5,H
-  &RES_5_l, // RES 5,L
+  &RES_4_a,  // RES 4,A
+  &RES_5_b,  // RES 5,B
+  &RES_5_c,  // RES 5,C
+  &RES_5_d,  // RES 5,D
+  &RES_5_e,  // RES 5,E
+  &RES_5_h,  // RES 5,H
+  &RES_5_l,  // RES 5,L
   &RES_5_hl, // RES 5,(HL)
-  &RES_5_a, // RES 5,A
-  &RES_6_b, // RES 6,B
-  &RES_6_c, // RES 6,C
-  &RES_6_d, // RES 6,D
-  &RES_6_e, // RES 6,E
-  &RES_6_h, // RES 6,H
-  &RES_6_l, // RES 6,L
+  &RES_5_a,  // RES 5,A
+  &RES_6_b,  // RES 6,B
+  &RES_6_c,  // RES 6,C
+  &RES_6_d,  // RES 6,D
+  &RES_6_e,  // RES 6,E
+  &RES_6_h,  // RES 6,H
+  &RES_6_l,  // RES 6,L
   &RES_6_hl, // RES 6,(HL)
-  &RES_6_a, // RES 6,A
-  &RES_7_b, // RES 7,B
-  &RES_7_c, // RES 7,C
-  &RES_7_d, // RES 7,D
-  &RES_7_e, // RES 7,E
-  &RES_7_h, // RES 7,H
-  &RES_7_l, // RES 7,L
+  &RES_6_a,  // RES 6,A
+  &RES_7_b,  // RES 7,B
+  &RES_7_c,  // RES 7,C
+  &RES_7_d,  // RES 7,D
+  &RES_7_e,  // RES 7,E
+  &RES_7_h,  // RES 7,H
+  &RES_7_l,  // RES 7,L
   &RES_7_hl, // RES 7,(HL)
-  &RES_7_a, // RES 7,A
-  &SET_0_b, // SET 0,B
-  &SET_0_c, // SET 0,C
-  &SET_0_d, // SET 0,D
-  &SET_0_e, // SET 0,E
-  &SET_0_h, // SET 0,H
-  &SET_0_l, // SET 0,L
+  &RES_7_a,  // RES 7,A
+  &SET_0_b,  // SET 0,B
+  &SET_0_c,  // SET 0,C
+  &SET_0_d,  // SET 0,D
+  &SET_0_e,  // SET 0,E
+  &SET_0_h,  // SET 0,H
+  &SET_0_l,  // SET 0,L
   &SET_0_hl, // SET 0,(HL)
-  &SET_0_a, // SET 0,A
-  &SET_1_b, // SET 1,B
-  &SET_1_c, // SET 1,C
-  &SET_1_d, // SET 1,D
-  &SET_1_e, // SET 1,E
-  &SET_1_h, // SET 1,H
-  &SET_1_l, // SET 1,L
+  &SET_0_a,  // SET 0,A
+  &SET_1_b,  // SET 1,B
+  &SET_1_c,  // SET 1,C
+  &SET_1_d,  // SET 1,D
+  &SET_1_e,  // SET 1,E
+  &SET_1_h,  // SET 1,H
+  &SET_1_l,  // SET 1,L
   &SET_1_hl, // SET 1,(HL)
-  &SET_1_a, // SET 1,A
-  &SET_2_b, // SET 2,B
-  &SET_2_c, // SET 2,C
-  &SET_2_d, // SET 2,D
-  &SET_2_e, // SET 2,E
-  &SET_2_h, // SET 2,H
-  &SET_2_l, // SET 2,L
+  &SET_1_a,  // SET 1,A
+  &SET_2_b,  // SET 2,B
+  &SET_2_c,  // SET 2,C
+  &SET_2_d,  // SET 2,D
+  &SET_2_e,  // SET 2,E
+  &SET_2_h,  // SET 2,H
+  &SET_2_l,  // SET 2,L
   &SET_2_hl, // SET 2,(HL)
-  &SET_2_a, // SET 2,A
-  &SET_3_b, // SET 3,B
-  &SET_3_c, // SET 3,C
-  &SET_3_d, // SET 3,D
-  &SET_3_e, // SET 3,E
-  &SET_3_h, // SET 3,H
-  &SET_3_l, // SET 3,L
+  &SET_2_a,  // SET 2,A
+  &SET_3_b,  // SET 3,B
+  &SET_3_c,  // SET 3,C
+  &SET_3_d,  // SET 3,D
+  &SET_3_e,  // SET 3,E
+  &SET_3_h,  // SET 3,H
+  &SET_3_l,  // SET 3,L
   &SET_3_hl, // SET 3,(HL)
-  &SET_3_a, // SET 3,A
-  &SET_4_b, // SET 4,B
-  &SET_4_c, // SET 4,C
-  &SET_4_d, // SET 4,D
-  &SET_4_e, // SET 4,E
-  &SET_4_h, // SET 4,H
-  &SET_4_l, // SET 4,L
+  &SET_3_a,  // SET 3,A
+  &SET_4_b,  // SET 4,B
+  &SET_4_c,  // SET 4,C
+  &SET_4_d,  // SET 4,D
+  &SET_4_e,  // SET 4,E
+  &SET_4_h,  // SET 4,H
+  &SET_4_l,  // SET 4,L
   &SET_4_hl, // SET 4,(HL)
-  &SET_4_a, // SET 4,A
-  &SET_5_b, // SET 5,B
-  &SET_5_c, // SET 5,C
-  &SET_5_d, // SET 5,D
-  &SET_5_e, // SET 5,E
-  &SET_5_h, // SET 5,H
-  &SET_5_l, // SET 5,L
+  &SET_4_a,  // SET 4,A
+  &SET_5_b,  // SET 5,B
+  &SET_5_c,  // SET 5,C
+  &SET_5_d,  // SET 5,D
+  &SET_5_e,  // SET 5,E
+  &SET_5_h,  // SET 5,H
+  &SET_5_l,  // SET 5,L
   &SET_5_hl, // SET 5,(HL)
-  &SET_5_a, // SET 5,A
-  &SET_6_b, // SET 6,B
-  &SET_6_c, // SET 6,C
-  &SET_6_d, // SET 6,D
-  &SET_6_e, // SET 6,E
-  &SET_6_h, // SET 6,H
-  &SET_6_l, // SET 6,L
+  &SET_5_a,  // SET 5,A
+  &SET_6_b,  // SET 6,B
+  &SET_6_c,  // SET 6,C
+  &SET_6_d,  // SET 6,D
+  &SET_6_e,  // SET 6,E
+  &SET_6_h,  // SET 6,H
+  &SET_6_l,  // SET 6,L
   &SET_6_hl, // SET 6,(HL)
-  &SET_6_a, // SET 6,A
-  &SET_7_b, // SET 7,B
-  &SET_7_c, // SET 7,C
-  &SET_7_d, // SET 7,D
-  &SET_7_e, // SET 7,E
-  &SET_7_h, // SET 7,H
-  &SET_7_l, // SET 7,L
+  &SET_6_a,  // SET 6,A
+  &SET_7_b,  // SET 7,B
+  &SET_7_c,  // SET 7,C
+  &SET_7_d,  // SET 7,D
+  &SET_7_e,  // SET 7,E
+  &SET_7_h,  // SET 7,H
+  &SET_7_l,  // SET 7,L
   &SET_7_hl, // SET 7,(HL)
-  &SET_7_a // SET 7,A
+  &SET_7_a   // SET 7,A
 };
 
 uint8_t cpuExec(CPU *cpu)
@@ -1469,9 +1504,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return 8;
 
     case 0x7: /* RLCA */
-      RLC_a(cpu);
-      cpuSetFlag(cpu, FLAG_Z, 0);
-      return 4;
+      return RLCA(cpu);
 
     case 0x8: /* LD (a16),SP */
       mmuWriteWord(cpu->mmu, mmuReadWord(cpu->mmu, cpu->regs.pc), cpu->regs.sp);
@@ -1500,9 +1533,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return 8;
 
     case 0xF: /* RRCA */
-      RRC_a(cpu);
-      cpuSetFlag(cpu, FLAG_Z, 0);
-      return 4;
+      return RRCA(cpu);
 
     case 0x10: /* STOP 0 */
       return NOP(cpu);
@@ -1534,9 +1565,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return 8;
 
     case 0x17: /* RLA */
-      RL_a(cpu);
-      cpuSetFlag(cpu, FLAG_Z, false);
-      return 4;
+      return RLA(cpu);
 
     case 0x18: /* JR r8 */
       return JR(cpu);
@@ -1562,9 +1591,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return 8;
 
     case 0x1F: /* RRA */
-      RR_a(cpu);
-      cpuSetFlag(cpu, FLAG_Z, false);
-      return 4;
+      return RRA(cpu);
 
     case 0x20: /* JR NZ,r8 */
       return JR_nz(cpu);
@@ -1660,10 +1687,10 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return INC_sp(cpu);
 
     case 0x34: /* INC (HL) */
-      return INC_hl_p(cpu);
+      return INC_$hl(cpu);
 
     case 0x35: /* DEC (HL) */
-      return DEC_hl_p(cpu);
+      return DEC_$hl(cpu);
 
     case 0x36: /* LD (HL),d8 */
     {
