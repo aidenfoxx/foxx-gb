@@ -41,7 +41,7 @@ void mmuWriteByte(MMU *mmu, uint16_t address, uint8_t data)
 
 		case 0x2000:
 		case 0x3000:
-			mmu->romBank = (mmu->romBank & 0x60) + MAX(data & 0x1F, 1);
+			mmu->romBank = (mmu->romBank & 0x60) + MAX(data & 0x1F, 1); // TODO: Is this right?
 			return;
 
 		case 0x4000:

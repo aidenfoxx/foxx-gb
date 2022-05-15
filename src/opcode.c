@@ -191,21 +191,21 @@ static uint8_t SET(CPU *cpu, uint8_t val, uint8_t *ref)
 /**
  * Load/store operations
  */
-#define DEF_LD_B(A, B)\
+#define DEF_LD_R8(A, B)\
 static uint8_t LD_##A##_##B(CPU *cpu)\
 {\
   cpu->regs.A = cpu->regs.B;\
   return 4;\
 }
 
-#define DEF_LD_B_HL(A)\
+#define DEF_LD_R8_$HL(A)\
 static uint8_t LD_##A##_hl(CPU *cpu)\
 {\
   cpu->regs.A = mmuReadByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l);\
   return 8;\
 }
 
-#define DEF_LD_HL_B(A)\
+#define DEF_LD_$HL_R8(A)\
 static uint8_t LD_hl_##A(CPU *cpu)\
 {\
   mmuWriteByte(cpu->mmu, (cpu->regs.h << 8) + cpu->regs.l, cpu->regs.A);\
@@ -229,13 +229,14 @@ static uint8_t ADD(CPU *cpu, uint8_t *ref)
   return 4;
 }
 
-static uint8_t ADD_W(CPU *cpu, uint16_t *ref)
+static uint8_t ADD_W(CPU *cpu, uint8_t *a, uint8_t *b)
 {
   uint16_t hl = (cpu->regs.h << 8) + cpu->regs.l;
-  uint32_t result = hl + *ref;
+  uint16_t reg = (*a << 8) + *b;
+  uint32_t result = hl + reg;
 
   cpuSetFlag(cpu, FLAG_N, false);
-  cpuSetFlag(cpu, FLAG_H, (hl & 0xFFF) + (*ref & 0xFFF) > 0xFFF);
+  cpuSetFlag(cpu, FLAG_H, (hl & 0xFFF) + (reg & 0xFFF) > 0xFFF);
   cpuSetFlag(cpu, FLAG_C, result > 0xFFFF);
 
   cpu->regs.h = result >> 8;
@@ -311,9 +312,15 @@ static uint8_t INC(CPU *cpu, uint8_t *ref)
   return 4;
 }
 
-static uint8_t INC_W(CPU *cpu, uint16_t *ref)
+static uint8_t INC_W(CPU *cpu, uint8_t *a, uint8_t *b)
 {
-  (*ref)++;
+  uint16_t reg = (*a << 8) + *b;
+
+  reg++; 
+
+  *a = reg >> 8;
+  *b = reg;
+
   return 8;
 }
 
@@ -328,9 +335,15 @@ static uint8_t DEC(CPU *cpu, uint8_t *ref)
   return 4;
 }
 
-static uint8_t DEC_W(CPU *cpu, uint16_t *ref)
+static uint8_t DEC_W(CPU *cpu, uint8_t *a, uint8_t *b)
 {
-  (*ref)--;
+  uint16_t reg = (*a << 8) + *b;
+
+  reg--;
+
+  *a = reg >> 8;
+  *b = reg;
+
   return 8;
 }
 
@@ -465,22 +478,23 @@ static uint8_t OP##_##A(CPU *cpu)\
   return OP(cpu, A);\
 }
 
-#define DEF_OP_REG(OP, A)\
+#define DEF_OP_R8(OP, A)\
 static uint8_t OP##_##A(CPU *cpu)\
 {\
   return OP(cpu, &cpu->regs.A);\
 }
 
-#define DEF_OP_REGS(OP, A, B)\
+#define DEF_OP_R16(OP, A, B)\
 static uint8_t OP##_##A##B(CPU *cpu)\
 {\
-  uint16_t ref = (cpu->regs.A << 8) + cpu->regs.B;\
-  uint8_t cycles = OP(cpu, &ref);\
-\
-  cpu->regs.A = ref >> 8;\
-  cpu->regs.B = ref;\
-\
-  return cycles;\
+  return OP(cpu, &cpu->regs.A, &cpu->regs.B);\
+}
+
+#define DEF_OP_SP(OP)\
+static uint8_t OP##_sp(CPU *cpu)\
+{\
+  uint16_t *sp = &cpu->regs.sp;\
+  return OP(cpu, (uint8_t*)sp + sizeof(uint8_t), (uint8_t*)sp);\
 }
 
 #define DEF_OP_$HL(OP)\
@@ -505,7 +519,7 @@ static uint8_t OP##_d8(CPU *cpu)\
   return cycles + 4;\
 }
 
-#define DEF_OP_B_REG(OP, A, B)\
+#define DEF_OP_B_R8(OP, A, B)\
 static uint8_t OP##_##A##_##B(CPU *cpu)\
 {\
   return OP(cpu, A, &cpu->regs.B);\
@@ -576,457 +590,462 @@ DEF_OP_NZ(JR)
 DEF_OP_C(JR)
 DEF_OP_NC(JR)
 
-DEF_OP_REG(RLC, b)
-DEF_OP_REG(RLC, c)
-DEF_OP_REG(RLC, d)
-DEF_OP_REG(RLC, e)
-DEF_OP_REG(RLC, h)
-DEF_OP_REG(RLC, l)
+DEF_OP_R8(RLC, b)
+DEF_OP_R8(RLC, c)
+DEF_OP_R8(RLC, d)
+DEF_OP_R8(RLC, e)
+DEF_OP_R8(RLC, h)
+DEF_OP_R8(RLC, l)
 DEF_OP_$HL(RLC)
-DEF_OP_REG(RLC, a)
+DEF_OP_R8(RLC, a)
 
-DEF_OP_REG(RRC, b)
-DEF_OP_REG(RRC, c)
-DEF_OP_REG(RRC, d)
-DEF_OP_REG(RRC, e)
-DEF_OP_REG(RRC, h)
-DEF_OP_REG(RRC, l)
+DEF_OP_R8(RRC, b)
+DEF_OP_R8(RRC, c)
+DEF_OP_R8(RRC, d)
+DEF_OP_R8(RRC, e)
+DEF_OP_R8(RRC, h)
+DEF_OP_R8(RRC, l)
 DEF_OP_$HL(RRC)
-DEF_OP_REG(RRC, a)
+DEF_OP_R8(RRC, a)
 
-DEF_OP_REG(RL, b)
-DEF_OP_REG(RL, c)
-DEF_OP_REG(RL, d)
-DEF_OP_REG(RL, e)
-DEF_OP_REG(RL, h)
-DEF_OP_REG(RL, l)
+DEF_OP_R8(RL, b)
+DEF_OP_R8(RL, c)
+DEF_OP_R8(RL, d)
+DEF_OP_R8(RL, e)
+DEF_OP_R8(RL, h)
+DEF_OP_R8(RL, l)
 DEF_OP_$HL(RL)
-DEF_OP_REG(RL, a)
+DEF_OP_R8(RL, a)
 
-DEF_OP_REG(RR, b)
-DEF_OP_REG(RR, c)
-DEF_OP_REG(RR, d)
-DEF_OP_REG(RR, e)
-DEF_OP_REG(RR, h)
-DEF_OP_REG(RR, l)
+DEF_OP_R8(RR, b)
+DEF_OP_R8(RR, c)
+DEF_OP_R8(RR, d)
+DEF_OP_R8(RR, e)
+DEF_OP_R8(RR, h)
+DEF_OP_R8(RR, l)
 DEF_OP_$HL(RR)
-DEF_OP_REG(RR, a)
+DEF_OP_R8(RR, a)
 
-DEF_OP_REG(SLA, b)
-DEF_OP_REG(SLA, c)
-DEF_OP_REG(SLA, d)
-DEF_OP_REG(SLA, e)
-DEF_OP_REG(SLA, h)
-DEF_OP_REG(SLA, l)
+DEF_OP_R8(SLA, b)
+DEF_OP_R8(SLA, c)
+DEF_OP_R8(SLA, d)
+DEF_OP_R8(SLA, e)
+DEF_OP_R8(SLA, h)
+DEF_OP_R8(SLA, l)
 DEF_OP_$HL(SLA)
-DEF_OP_REG(SLA, a)
+DEF_OP_R8(SLA, a)
 
-DEF_OP_REG(SRA, b)
-DEF_OP_REG(SRA, c)
-DEF_OP_REG(SRA, d)
-DEF_OP_REG(SRA, e)
-DEF_OP_REG(SRA, h)
-DEF_OP_REG(SRA, l)
+DEF_OP_R8(SRA, b)
+DEF_OP_R8(SRA, c)
+DEF_OP_R8(SRA, d)
+DEF_OP_R8(SRA, e)
+DEF_OP_R8(SRA, h)
+DEF_OP_R8(SRA, l)
 DEF_OP_$HL(SRA)
-DEF_OP_REG(SRA, a)
+DEF_OP_R8(SRA, a)
 
-DEF_OP_REG(SWAP, b)
-DEF_OP_REG(SWAP, c)
-DEF_OP_REG(SWAP, d)
-DEF_OP_REG(SWAP, e)
-DEF_OP_REG(SWAP, h)
-DEF_OP_REG(SWAP, l)
+DEF_OP_R8(SWAP, b)
+DEF_OP_R8(SWAP, c)
+DEF_OP_R8(SWAP, d)
+DEF_OP_R8(SWAP, e)
+DEF_OP_R8(SWAP, h)
+DEF_OP_R8(SWAP, l)
 DEF_OP_$HL(SWAP)
-DEF_OP_REG(SWAP, a)
+DEF_OP_R8(SWAP, a)
 
-DEF_OP_REG(SRL, b)
-DEF_OP_REG(SRL, c)
-DEF_OP_REG(SRL, d)
-DEF_OP_REG(SRL, e)
-DEF_OP_REG(SRL, h)
-DEF_OP_REG(SRL, l)
+DEF_OP_R8(SRL, b)
+DEF_OP_R8(SRL, c)
+DEF_OP_R8(SRL, d)
+DEF_OP_R8(SRL, e)
+DEF_OP_R8(SRL, h)
+DEF_OP_R8(SRL, l)
 DEF_OP_$HL(SRL)
-DEF_OP_REG(SRL, a)
+DEF_OP_R8(SRL, a)
 
-DEF_OP_B_REG(BIT, 0, b)
-DEF_OP_B_REG(BIT, 0, c)
-DEF_OP_B_REG(BIT, 0, d)
-DEF_OP_B_REG(BIT, 0, e)
-DEF_OP_B_REG(BIT, 0, h)
-DEF_OP_B_REG(BIT, 0, l)
+DEF_OP_B_R8(BIT, 0, b)
+DEF_OP_B_R8(BIT, 0, c)
+DEF_OP_B_R8(BIT, 0, d)
+DEF_OP_B_R8(BIT, 0, e)
+DEF_OP_B_R8(BIT, 0, h)
+DEF_OP_B_R8(BIT, 0, l)
 DEF_OP_B_$HL(BIT, 0)
-DEF_OP_B_REG(BIT, 0, a)
+DEF_OP_B_R8(BIT, 0, a)
 
-DEF_OP_B_REG(BIT, 1, b)
-DEF_OP_B_REG(BIT, 1, c)
-DEF_OP_B_REG(BIT, 1, d)
-DEF_OP_B_REG(BIT, 1, e)
-DEF_OP_B_REG(BIT, 1, h)
-DEF_OP_B_REG(BIT, 1, l)
+DEF_OP_B_R8(BIT, 1, b)
+DEF_OP_B_R8(BIT, 1, c)
+DEF_OP_B_R8(BIT, 1, d)
+DEF_OP_B_R8(BIT, 1, e)
+DEF_OP_B_R8(BIT, 1, h)
+DEF_OP_B_R8(BIT, 1, l)
 DEF_OP_B_$HL(BIT, 1)
-DEF_OP_B_REG(BIT, 1, a)
+DEF_OP_B_R8(BIT, 1, a)
 
-DEF_OP_B_REG(BIT, 2, b)
-DEF_OP_B_REG(BIT, 2, c)
-DEF_OP_B_REG(BIT, 2, d)
-DEF_OP_B_REG(BIT, 2, e)
-DEF_OP_B_REG(BIT, 2, h)
-DEF_OP_B_REG(BIT, 2, l)
+DEF_OP_B_R8(BIT, 2, b)
+DEF_OP_B_R8(BIT, 2, c)
+DEF_OP_B_R8(BIT, 2, d)
+DEF_OP_B_R8(BIT, 2, e)
+DEF_OP_B_R8(BIT, 2, h)
+DEF_OP_B_R8(BIT, 2, l)
 DEF_OP_B_$HL(BIT, 2)
-DEF_OP_B_REG(BIT, 2, a)
+DEF_OP_B_R8(BIT, 2, a)
 
-DEF_OP_B_REG(BIT, 3, b)
-DEF_OP_B_REG(BIT, 3, c)
-DEF_OP_B_REG(BIT, 3, d)
-DEF_OP_B_REG(BIT, 3, e)
-DEF_OP_B_REG(BIT, 3, h)
-DEF_OP_B_REG(BIT, 3, l)
+DEF_OP_B_R8(BIT, 3, b)
+DEF_OP_B_R8(BIT, 3, c)
+DEF_OP_B_R8(BIT, 3, d)
+DEF_OP_B_R8(BIT, 3, e)
+DEF_OP_B_R8(BIT, 3, h)
+DEF_OP_B_R8(BIT, 3, l)
 DEF_OP_B_$HL(BIT, 3)
-DEF_OP_B_REG(BIT, 3, a)
+DEF_OP_B_R8(BIT, 3, a)
 
-DEF_OP_B_REG(BIT, 4, b)
-DEF_OP_B_REG(BIT, 4, c)
-DEF_OP_B_REG(BIT, 4, d)
-DEF_OP_B_REG(BIT, 4, e)
-DEF_OP_B_REG(BIT, 4, h)
-DEF_OP_B_REG(BIT, 4, l)
+DEF_OP_B_R8(BIT, 4, b)
+DEF_OP_B_R8(BIT, 4, c)
+DEF_OP_B_R8(BIT, 4, d)
+DEF_OP_B_R8(BIT, 4, e)
+DEF_OP_B_R8(BIT, 4, h)
+DEF_OP_B_R8(BIT, 4, l)
 DEF_OP_B_$HL(BIT, 4)
-DEF_OP_B_REG(BIT, 4, a)
+DEF_OP_B_R8(BIT, 4, a)
 
-DEF_OP_B_REG(BIT, 5, b)
-DEF_OP_B_REG(BIT, 5, c)
-DEF_OP_B_REG(BIT, 5, d)
-DEF_OP_B_REG(BIT, 5, e)
-DEF_OP_B_REG(BIT, 5, h)
-DEF_OP_B_REG(BIT, 5, l)
+DEF_OP_B_R8(BIT, 5, b)
+DEF_OP_B_R8(BIT, 5, c)
+DEF_OP_B_R8(BIT, 5, d)
+DEF_OP_B_R8(BIT, 5, e)
+DEF_OP_B_R8(BIT, 5, h)
+DEF_OP_B_R8(BIT, 5, l)
 DEF_OP_B_$HL(BIT, 5)
-DEF_OP_B_REG(BIT, 5, a)
+DEF_OP_B_R8(BIT, 5, a)
 
-DEF_OP_B_REG(BIT, 6, b)
-DEF_OP_B_REG(BIT, 6, c)
-DEF_OP_B_REG(BIT, 6, d)
-DEF_OP_B_REG(BIT, 6, e)
-DEF_OP_B_REG(BIT, 6, h)
-DEF_OP_B_REG(BIT, 6, l)
+DEF_OP_B_R8(BIT, 6, b)
+DEF_OP_B_R8(BIT, 6, c)
+DEF_OP_B_R8(BIT, 6, d)
+DEF_OP_B_R8(BIT, 6, e)
+DEF_OP_B_R8(BIT, 6, h)
+DEF_OP_B_R8(BIT, 6, l)
 DEF_OP_B_$HL(BIT, 6)
-DEF_OP_B_REG(BIT, 6, a)
+DEF_OP_B_R8(BIT, 6, a)
 
-DEF_OP_B_REG(BIT, 7, b)
-DEF_OP_B_REG(BIT, 7, c)
-DEF_OP_B_REG(BIT, 7, d)
-DEF_OP_B_REG(BIT, 7, e)
-DEF_OP_B_REG(BIT, 7, h)
-DEF_OP_B_REG(BIT, 7, l)
+DEF_OP_B_R8(BIT, 7, b)
+DEF_OP_B_R8(BIT, 7, c)
+DEF_OP_B_R8(BIT, 7, d)
+DEF_OP_B_R8(BIT, 7, e)
+DEF_OP_B_R8(BIT, 7, h)
+DEF_OP_B_R8(BIT, 7, l)
 DEF_OP_B_$HL(BIT, 7)
-DEF_OP_B_REG(BIT, 7, a)
+DEF_OP_B_R8(BIT, 7, a)
 
-DEF_OP_B_REG(RES, 0, b)
-DEF_OP_B_REG(RES, 0, c)
-DEF_OP_B_REG(RES, 0, d)
-DEF_OP_B_REG(RES, 0, e)
-DEF_OP_B_REG(RES, 0, h)
-DEF_OP_B_REG(RES, 0, l)
+DEF_OP_B_R8(RES, 0, b)
+DEF_OP_B_R8(RES, 0, c)
+DEF_OP_B_R8(RES, 0, d)
+DEF_OP_B_R8(RES, 0, e)
+DEF_OP_B_R8(RES, 0, h)
+DEF_OP_B_R8(RES, 0, l)
 DEF_OP_B_$HL(RES, 0)
-DEF_OP_B_REG(RES, 0, a)
+DEF_OP_B_R8(RES, 0, a)
 
-DEF_OP_B_REG(RES, 1, b)
-DEF_OP_B_REG(RES, 1, c)
-DEF_OP_B_REG(RES, 1, d)
-DEF_OP_B_REG(RES, 1, e)
-DEF_OP_B_REG(RES, 1, h)
-DEF_OP_B_REG(RES, 1, l)
+DEF_OP_B_R8(RES, 1, b)
+DEF_OP_B_R8(RES, 1, c)
+DEF_OP_B_R8(RES, 1, d)
+DEF_OP_B_R8(RES, 1, e)
+DEF_OP_B_R8(RES, 1, h)
+DEF_OP_B_R8(RES, 1, l)
 DEF_OP_B_$HL(RES, 1)
-DEF_OP_B_REG(RES, 1, a)
+DEF_OP_B_R8(RES, 1, a)
 
-DEF_OP_B_REG(RES, 2, b)
-DEF_OP_B_REG(RES, 2, c)
-DEF_OP_B_REG(RES, 2, d)
-DEF_OP_B_REG(RES, 2, e)
-DEF_OP_B_REG(RES, 2, h)
-DEF_OP_B_REG(RES, 2, l)
+DEF_OP_B_R8(RES, 2, b)
+DEF_OP_B_R8(RES, 2, c)
+DEF_OP_B_R8(RES, 2, d)
+DEF_OP_B_R8(RES, 2, e)
+DEF_OP_B_R8(RES, 2, h)
+DEF_OP_B_R8(RES, 2, l)
 DEF_OP_B_$HL(RES, 2)
-DEF_OP_B_REG(RES, 2, a)
+DEF_OP_B_R8(RES, 2, a)
 
-DEF_OP_B_REG(RES, 3, b)
-DEF_OP_B_REG(RES, 3, c)
-DEF_OP_B_REG(RES, 3, d)
-DEF_OP_B_REG(RES, 3, e)
-DEF_OP_B_REG(RES, 3, h)
-DEF_OP_B_REG(RES, 3, l)
+DEF_OP_B_R8(RES, 3, b)
+DEF_OP_B_R8(RES, 3, c)
+DEF_OP_B_R8(RES, 3, d)
+DEF_OP_B_R8(RES, 3, e)
+DEF_OP_B_R8(RES, 3, h)
+DEF_OP_B_R8(RES, 3, l)
 DEF_OP_B_$HL(RES, 3)
-DEF_OP_B_REG(RES, 3, a)
+DEF_OP_B_R8(RES, 3, a)
 
-DEF_OP_B_REG(RES, 4, b)
-DEF_OP_B_REG(RES, 4, c)
-DEF_OP_B_REG(RES, 4, d)
-DEF_OP_B_REG(RES, 4, e)
-DEF_OP_B_REG(RES, 4, h)
-DEF_OP_B_REG(RES, 4, l)
+DEF_OP_B_R8(RES, 4, b)
+DEF_OP_B_R8(RES, 4, c)
+DEF_OP_B_R8(RES, 4, d)
+DEF_OP_B_R8(RES, 4, e)
+DEF_OP_B_R8(RES, 4, h)
+DEF_OP_B_R8(RES, 4, l)
 DEF_OP_B_$HL(RES, 4)
-DEF_OP_B_REG(RES, 4, a)
+DEF_OP_B_R8(RES, 4, a)
 
-DEF_OP_B_REG(RES, 5, b)
-DEF_OP_B_REG(RES, 5, c)
-DEF_OP_B_REG(RES, 5, d)
-DEF_OP_B_REG(RES, 5, e)
-DEF_OP_B_REG(RES, 5, h)
-DEF_OP_B_REG(RES, 5, l)
+DEF_OP_B_R8(RES, 5, b)
+DEF_OP_B_R8(RES, 5, c)
+DEF_OP_B_R8(RES, 5, d)
+DEF_OP_B_R8(RES, 5, e)
+DEF_OP_B_R8(RES, 5, h)
+DEF_OP_B_R8(RES, 5, l)
 DEF_OP_B_$HL(RES, 5)
-DEF_OP_B_REG(RES, 5, a)
+DEF_OP_B_R8(RES, 5, a)
 
-DEF_OP_B_REG(RES, 6, b)
-DEF_OP_B_REG(RES, 6, c)
-DEF_OP_B_REG(RES, 6, d)
-DEF_OP_B_REG(RES, 6, e)
-DEF_OP_B_REG(RES, 6, h)
-DEF_OP_B_REG(RES, 6, l)
+DEF_OP_B_R8(RES, 6, b)
+DEF_OP_B_R8(RES, 6, c)
+DEF_OP_B_R8(RES, 6, d)
+DEF_OP_B_R8(RES, 6, e)
+DEF_OP_B_R8(RES, 6, h)
+DEF_OP_B_R8(RES, 6, l)
 DEF_OP_B_$HL(RES, 6)
-DEF_OP_B_REG(RES, 6, a)
+DEF_OP_B_R8(RES, 6, a)
 
-DEF_OP_B_REG(RES, 7, b)
-DEF_OP_B_REG(RES, 7, c)
-DEF_OP_B_REG(RES, 7, d)
-DEF_OP_B_REG(RES, 7, e)
-DEF_OP_B_REG(RES, 7, h)
-DEF_OP_B_REG(RES, 7, l)
+DEF_OP_B_R8(RES, 7, b)
+DEF_OP_B_R8(RES, 7, c)
+DEF_OP_B_R8(RES, 7, d)
+DEF_OP_B_R8(RES, 7, e)
+DEF_OP_B_R8(RES, 7, h)
+DEF_OP_B_R8(RES, 7, l)
 DEF_OP_B_$HL(RES, 7)
-DEF_OP_B_REG(RES, 7, a)
+DEF_OP_B_R8(RES, 7, a)
 
-DEF_OP_B_REG(SET, 0, b)
-DEF_OP_B_REG(SET, 0, c)
-DEF_OP_B_REG(SET, 0, d)
-DEF_OP_B_REG(SET, 0, e)
-DEF_OP_B_REG(SET, 0, h)
-DEF_OP_B_REG(SET, 0, l)
+DEF_OP_B_R8(SET, 0, b)
+DEF_OP_B_R8(SET, 0, c)
+DEF_OP_B_R8(SET, 0, d)
+DEF_OP_B_R8(SET, 0, e)
+DEF_OP_B_R8(SET, 0, h)
+DEF_OP_B_R8(SET, 0, l)
 DEF_OP_B_$HL(SET, 0)
-DEF_OP_B_REG(SET, 0, a)
+DEF_OP_B_R8(SET, 0, a)
 
-DEF_OP_B_REG(SET, 1, b)
-DEF_OP_B_REG(SET, 1, c)
-DEF_OP_B_REG(SET, 1, d)
-DEF_OP_B_REG(SET, 1, e)
-DEF_OP_B_REG(SET, 1, h)
-DEF_OP_B_REG(SET, 1, l)
+DEF_OP_B_R8(SET, 1, b)
+DEF_OP_B_R8(SET, 1, c)
+DEF_OP_B_R8(SET, 1, d)
+DEF_OP_B_R8(SET, 1, e)
+DEF_OP_B_R8(SET, 1, h)
+DEF_OP_B_R8(SET, 1, l)
 DEF_OP_B_$HL(SET, 1)
-DEF_OP_B_REG(SET, 1, a)
+DEF_OP_B_R8(SET, 1, a)
 
-DEF_OP_B_REG(SET, 2, b)
-DEF_OP_B_REG(SET, 2, c)
-DEF_OP_B_REG(SET, 2, d)
-DEF_OP_B_REG(SET, 2, e)
-DEF_OP_B_REG(SET, 2, h)
-DEF_OP_B_REG(SET, 2, l)
+DEF_OP_B_R8(SET, 2, b)
+DEF_OP_B_R8(SET, 2, c)
+DEF_OP_B_R8(SET, 2, d)
+DEF_OP_B_R8(SET, 2, e)
+DEF_OP_B_R8(SET, 2, h)
+DEF_OP_B_R8(SET, 2, l)
 DEF_OP_B_$HL(SET, 2)
-DEF_OP_B_REG(SET, 2, a)
+DEF_OP_B_R8(SET, 2, a)
 
-DEF_OP_B_REG(SET, 3, b)
-DEF_OP_B_REG(SET, 3, c)
-DEF_OP_B_REG(SET, 3, d)
-DEF_OP_B_REG(SET, 3, e)
-DEF_OP_B_REG(SET, 3, h)
-DEF_OP_B_REG(SET, 3, l)
+DEF_OP_B_R8(SET, 3, b)
+DEF_OP_B_R8(SET, 3, c)
+DEF_OP_B_R8(SET, 3, d)
+DEF_OP_B_R8(SET, 3, e)
+DEF_OP_B_R8(SET, 3, h)
+DEF_OP_B_R8(SET, 3, l)
 DEF_OP_B_$HL(SET, 3)
-DEF_OP_B_REG(SET, 3, a)
+DEF_OP_B_R8(SET, 3, a)
 
-DEF_OP_B_REG(SET, 4, b)
-DEF_OP_B_REG(SET, 4, c)
-DEF_OP_B_REG(SET, 4, d)
-DEF_OP_B_REG(SET, 4, e)
-DEF_OP_B_REG(SET, 4, h)
-DEF_OP_B_REG(SET, 4, l)
+DEF_OP_B_R8(SET, 4, b)
+DEF_OP_B_R8(SET, 4, c)
+DEF_OP_B_R8(SET, 4, d)
+DEF_OP_B_R8(SET, 4, e)
+DEF_OP_B_R8(SET, 4, h)
+DEF_OP_B_R8(SET, 4, l)
 DEF_OP_B_$HL(SET, 4)
-DEF_OP_B_REG(SET, 4, a)
+DEF_OP_B_R8(SET, 4, a)
 
-DEF_OP_B_REG(SET, 5, b)
-DEF_OP_B_REG(SET, 5, c)
-DEF_OP_B_REG(SET, 5, d)
-DEF_OP_B_REG(SET, 5, e)
-DEF_OP_B_REG(SET, 5, h)
-DEF_OP_B_REG(SET, 5, l)
+DEF_OP_B_R8(SET, 5, b)
+DEF_OP_B_R8(SET, 5, c)
+DEF_OP_B_R8(SET, 5, d)
+DEF_OP_B_R8(SET, 5, e)
+DEF_OP_B_R8(SET, 5, h)
+DEF_OP_B_R8(SET, 5, l)
 DEF_OP_B_$HL(SET, 5)
-DEF_OP_B_REG(SET, 5, a)
+DEF_OP_B_R8(SET, 5, a)
 
-DEF_OP_B_REG(SET, 6, b)
-DEF_OP_B_REG(SET, 6, c)
-DEF_OP_B_REG(SET, 6, d)
-DEF_OP_B_REG(SET, 6, e)
-DEF_OP_B_REG(SET, 6, h)
-DEF_OP_B_REG(SET, 6, l)
+DEF_OP_B_R8(SET, 6, b)
+DEF_OP_B_R8(SET, 6, c)
+DEF_OP_B_R8(SET, 6, d)
+DEF_OP_B_R8(SET, 6, e)
+DEF_OP_B_R8(SET, 6, h)
+DEF_OP_B_R8(SET, 6, l)
 DEF_OP_B_$HL(SET, 6)
-DEF_OP_B_REG(SET, 6, a)
+DEF_OP_B_R8(SET, 6, a)
 
-DEF_OP_B_REG(SET, 7, b)
-DEF_OP_B_REG(SET, 7, c)
-DEF_OP_B_REG(SET, 7, d)
-DEF_OP_B_REG(SET, 7, e)
-DEF_OP_B_REG(SET, 7, h)
-DEF_OP_B_REG(SET, 7, l)
+DEF_OP_B_R8(SET, 7, b)
+DEF_OP_B_R8(SET, 7, c)
+DEF_OP_B_R8(SET, 7, d)
+DEF_OP_B_R8(SET, 7, e)
+DEF_OP_B_R8(SET, 7, h)
+DEF_OP_B_R8(SET, 7, l)
 DEF_OP_B_$HL(SET, 7)
-DEF_OP_B_REG(SET, 7, a)
+DEF_OP_B_R8(SET, 7, a)
 
-DEF_LD_B(b, c)
-DEF_LD_B(b, d)
-DEF_LD_B(b, e)
-DEF_LD_B(b, h)
-DEF_LD_B(b, l)
-DEF_LD_B_HL(b)
-DEF_LD_B(b, a)
+DEF_LD_R8(b, c)
+DEF_LD_R8(b, d)
+DEF_LD_R8(b, e)
+DEF_LD_R8(b, h)
+DEF_LD_R8(b, l)
+DEF_LD_R8_$HL(b)
+DEF_LD_R8(b, a)
 
-DEF_LD_B(c, b)
-DEF_LD_B(c, d)
-DEF_LD_B(c, e)
-DEF_LD_B(c, h)
-DEF_LD_B(c, l)
-DEF_LD_B_HL(c)
-DEF_LD_B(c, a)
+DEF_LD_R8(c, b)
+DEF_LD_R8(c, d)
+DEF_LD_R8(c, e)
+DEF_LD_R8(c, h)
+DEF_LD_R8(c, l)
+DEF_LD_R8_$HL(c)
+DEF_LD_R8(c, a)
 
-DEF_LD_B(d, b)
-DEF_LD_B(d, c)
-DEF_LD_B(d, e)
-DEF_LD_B(d, h)
-DEF_LD_B(d, l)
-DEF_LD_B_HL(d)
-DEF_LD_B(d, a)
+DEF_LD_R8(d, b)
+DEF_LD_R8(d, c)
+DEF_LD_R8(d, e)
+DEF_LD_R8(d, h)
+DEF_LD_R8(d, l)
+DEF_LD_R8_$HL(d)
+DEF_LD_R8(d, a)
 
-DEF_LD_B(e, b)
-DEF_LD_B(e, c)
-DEF_LD_B(e, d)
-DEF_LD_B(e, h)
-DEF_LD_B(e, l)
-DEF_LD_B_HL(e)
-DEF_LD_B(e, a)
+DEF_LD_R8(e, b)
+DEF_LD_R8(e, c)
+DEF_LD_R8(e, d)
+DEF_LD_R8(e, h)
+DEF_LD_R8(e, l)
+DEF_LD_R8_$HL(e)
+DEF_LD_R8(e, a)
 
-DEF_LD_B(h, b)
-DEF_LD_B(h, c)
-DEF_LD_B(h, d)
-DEF_LD_B(h, e)
-DEF_LD_B(h, l)
-DEF_LD_B_HL(h)
-DEF_LD_B(h, a)
+DEF_LD_R8(h, b)
+DEF_LD_R8(h, c)
+DEF_LD_R8(h, d)
+DEF_LD_R8(h, e)
+DEF_LD_R8(h, l)
+DEF_LD_R8_$HL(h)
+DEF_LD_R8(h, a)
 
-DEF_LD_B(l, b)
-DEF_LD_B(l, c)
-DEF_LD_B(l, d)
-DEF_LD_B(l, e)
-DEF_LD_B(l, h)
-DEF_LD_B_HL(l)
-DEF_LD_B(l, a)
+DEF_LD_R8(l, b)
+DEF_LD_R8(l, c)
+DEF_LD_R8(l, d)
+DEF_LD_R8(l, e)
+DEF_LD_R8(l, h)
+DEF_LD_R8_$HL(l)
+DEF_LD_R8(l, a)
 
-DEF_LD_HL_B(a)
-DEF_LD_HL_B(b)
-DEF_LD_HL_B(c)
-DEF_LD_HL_B(d)
-DEF_LD_HL_B(e)
-DEF_LD_HL_B(h)
-DEF_LD_HL_B(l)
+DEF_LD_$HL_R8(a)
+DEF_LD_$HL_R8(b)
+DEF_LD_$HL_R8(c)
+DEF_LD_$HL_R8(d)
+DEF_LD_$HL_R8(e)
+DEF_LD_$HL_R8(h)
+DEF_LD_$HL_R8(l)
 
-DEF_LD_B(a, b)
-DEF_LD_B(a, c)
-DEF_LD_B(a, d)
-DEF_LD_B(a, e)
-DEF_LD_B(a, h)
-DEF_LD_B(a, l)
-DEF_LD_B_HL(a)
+DEF_LD_R8(a, b)
+DEF_LD_R8(a, c)
+DEF_LD_R8(a, d)
+DEF_LD_R8(a, e)
+DEF_LD_R8(a, h)
+DEF_LD_R8(a, l)
+DEF_LD_R8_$HL(a)
 
-DEF_OP_REG(ADD, b)
-DEF_OP_REG(ADD, c)
-DEF_OP_REG(ADD, d)
-DEF_OP_REG(ADD, e)
-DEF_OP_REG(ADD, h)
-DEF_OP_REG(ADD, l)
+DEF_OP_R8(ADD, b)
+DEF_OP_R8(ADD, c)
+DEF_OP_R8(ADD, d)
+DEF_OP_R8(ADD, e)
+DEF_OP_R8(ADD, h)
+DEF_OP_R8(ADD, l)
 DEF_OP_$HL(ADD)
-DEF_OP_REG(ADD, a)
+DEF_OP_R8(ADD, a)
 
-DEF_OP_REG(ADC, b)
-DEF_OP_REG(ADC, c)
-DEF_OP_REG(ADC, d)
-DEF_OP_REG(ADC, e)
-DEF_OP_REG(ADC, h)
-DEF_OP_REG(ADC, l)
+DEF_OP_R16(ADD_W, b, c)
+DEF_OP_R16(ADD_W, d, e)
+DEF_OP_R16(ADD_W, h, l)
+DEF_OP_SP(ADD_W)
+
+DEF_OP_R8(ADC, b)
+DEF_OP_R8(ADC, c)
+DEF_OP_R8(ADC, d)
+DEF_OP_R8(ADC, e)
+DEF_OP_R8(ADC, h)
+DEF_OP_R8(ADC, l)
 DEF_OP_$HL(ADC)
-DEF_OP_REG(ADC, a)
+DEF_OP_R8(ADC, a)
 
-DEF_OP_REG(SUB, b)
-DEF_OP_REG(SUB, c)
-DEF_OP_REG(SUB, d)
-DEF_OP_REG(SUB, e)
-DEF_OP_REG(SUB, h)
-DEF_OP_REG(SUB, l)
+DEF_OP_R8(SUB, b)
+DEF_OP_R8(SUB, c)
+DEF_OP_R8(SUB, d)
+DEF_OP_R8(SUB, e)
+DEF_OP_R8(SUB, h)
+DEF_OP_R8(SUB, l)
 DEF_OP_$HL(SUB)
-DEF_OP_REG(SUB, a)
+DEF_OP_R8(SUB, a)
 
-DEF_OP_REG(SBC, b)
-DEF_OP_REG(SBC, c)
-DEF_OP_REG(SBC, d)
-DEF_OP_REG(SBC, e)
-DEF_OP_REG(SBC, h)
-DEF_OP_REG(SBC, l)
+DEF_OP_R8(SBC, b)
+DEF_OP_R8(SBC, c)
+DEF_OP_R8(SBC, d)
+DEF_OP_R8(SBC, e)
+DEF_OP_R8(SBC, h)
+DEF_OP_R8(SBC, l)
 DEF_OP_$HL(SBC)
-DEF_OP_REG(SBC, a)
+DEF_OP_R8(SBC, a)
 
-DEF_OP_REG(CP, b)
-DEF_OP_REG(CP, c)
-DEF_OP_REG(CP, d)
-DEF_OP_REG(CP, e)
-DEF_OP_REG(CP, h)
-DEF_OP_REG(CP, l)
+DEF_OP_R8(CP, b)
+DEF_OP_R8(CP, c)
+DEF_OP_R8(CP, d)
+DEF_OP_R8(CP, e)
+DEF_OP_R8(CP, h)
+DEF_OP_R8(CP, l)
 DEF_OP_$HL(CP)
-DEF_OP_REG(CP, a)
+DEF_OP_R8(CP, a)
 
-DEF_OP_REG(INC, b)
-DEF_OP_REG(INC, c)
-DEF_OP_REG(INC, d)
-DEF_OP_REG(INC, e)
-DEF_OP_REG(INC, h)
-DEF_OP_REG(INC, l)
+DEF_OP_R8(INC, b)
+DEF_OP_R8(INC, c)
+DEF_OP_R8(INC, d)
+DEF_OP_R8(INC, e)
+DEF_OP_R8(INC, h)
+DEF_OP_R8(INC, l)
 DEF_OP_$HL(INC)
-DEF_OP_REG(INC, a)
+DEF_OP_R8(INC, a)
 
-DEF_OP_REGS(INC_W, b, c)
-DEF_OP_REGS(INC_W, d, e)
-DEF_OP_REGS(INC_W, h, l)
-DEF_OP_REG(INC_W, sp)
+DEF_OP_R16(INC_W, b, c)
+DEF_OP_R16(INC_W, d, e)
+DEF_OP_R16(INC_W, h, l)
+DEF_OP_SP(INC_W)
 
-DEF_OP_REG(DEC, b)
-DEF_OP_REG(DEC, c)
-DEF_OP_REG(DEC, d)
-DEF_OP_REG(DEC, e)
-DEF_OP_REG(DEC, h)
-DEF_OP_REG(DEC, l)
+DEF_OP_R8(DEC, b)
+DEF_OP_R8(DEC, c)
+DEF_OP_R8(DEC, d)
+DEF_OP_R8(DEC, e)
+DEF_OP_R8(DEC, h)
+DEF_OP_R8(DEC, l)
 DEF_OP_$HL(DEC)
-DEF_OP_REG(DEC, a)
+DEF_OP_R8(DEC, a)
 
-DEF_OP_REGS(DEC_W, b, c)
-DEF_OP_REGS(DEC_W, d, e)
-DEF_OP_REGS(DEC_W, h, l)
-DEF_OP_REG(DEC_W, sp)
+DEF_OP_R16(DEC_W, b, c)
+DEF_OP_R16(DEC_W, d, e)
+DEF_OP_R16(DEC_W, h, l)
+DEF_OP_SP(DEC_W)
 
-DEF_OP_REG(AND, b)
-DEF_OP_REG(AND, c)
-DEF_OP_REG(AND, d)
-DEF_OP_REG(AND, e)
-DEF_OP_REG(AND, h)
-DEF_OP_REG(AND, l)
+DEF_OP_R8(AND, b)
+DEF_OP_R8(AND, c)
+DEF_OP_R8(AND, d)
+DEF_OP_R8(AND, e)
+DEF_OP_R8(AND, h)
+DEF_OP_R8(AND, l)
 DEF_OP_$HL(AND)
-DEF_OP_REG(AND, a)
+DEF_OP_R8(AND, a)
 
-DEF_OP_REG(OR, b)
-DEF_OP_REG(OR, c)
-DEF_OP_REG(OR, d)
-DEF_OP_REG(OR, e)
-DEF_OP_REG(OR, h)
-DEF_OP_REG(OR, l)
+DEF_OP_R8(OR, b)
+DEF_OP_R8(OR, c)
+DEF_OP_R8(OR, d)
+DEF_OP_R8(OR, e)
+DEF_OP_R8(OR, h)
+DEF_OP_R8(OR, l)
 DEF_OP_$HL(OR)
-DEF_OP_REG(OR, a)
+DEF_OP_R8(OR, a)
 
-DEF_OP_REG(XOR, b)
-DEF_OP_REG(XOR, c)
-DEF_OP_REG(XOR, d)
-DEF_OP_REG(XOR, e)
-DEF_OP_REG(XOR, h)
-DEF_OP_REG(XOR, l)
+DEF_OP_R8(XOR, b)
+DEF_OP_R8(XOR, c)
+DEF_OP_R8(XOR, d)
+DEF_OP_R8(XOR, e)
+DEF_OP_R8(XOR, h)
+DEF_OP_R8(XOR, l)
 DEF_OP_$HL(XOR)
-DEF_OP_REG(XOR, a)
+DEF_OP_R8(XOR, a)
 
 DEF_OP_D8(ADD)
 DEF_OP_D8(ADC)
@@ -1354,10 +1373,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return 20;
 
     case 0x9: /* ADD HL,BC */
-    {
-      uint16_t ref = (cpu->regs.b << 8) + cpu->regs.c;
-      return ADD_W(cpu, &ref);
-    }
+      return ADD_W_bc(cpu);
 
     case 0xA: /* LD A,(BC) */
       cpu->regs.a = mmuReadByte(cpu->mmu, (cpu->regs.b << 8) + cpu->regs.c);
@@ -1416,10 +1432,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return JR(cpu);
 
     case 0x19: /* ADD HL,DE */
-    {
-      uint16_t ref = (cpu->regs.d << 8) + cpu->regs.e;
-      return ADD_W(cpu, &ref);
-    }
+      return ADD_W_de(cpu);
 
     case 0x1A: /* LD A,(DE) */
       cpu->regs.a = mmuReadByte(cpu->mmu, (cpu->regs.d << 8) + cpu->regs.e);
@@ -1483,10 +1496,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return JR_z(cpu);
 
     case 0x29: /* ADD HL,HL */
-    {
-      uint16_t ref = (cpu->regs.h << 8) + cpu->regs.l;
-      return ADD_W(cpu, &ref);
-    }
+      return ADD_W_hl(cpu); // TODO: NOT WORKING
 
     case 0x2A: /* LD A,(HL+) */
     {
@@ -1555,7 +1565,7 @@ uint8_t cpuOpcode(CPU *cpu, uint8_t opcode)
       return JR_c(cpu);
 
     case 0x39: /* ADD HL,SP */
-      return ADD_W(cpu, &cpu->regs.sp);
+      return ADD_W_sp(cpu);
 
     case 0x3A: /* LD A,(HL-) */
     {

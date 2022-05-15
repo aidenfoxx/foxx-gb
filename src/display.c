@@ -142,7 +142,7 @@ void displayRender(Display *display)
 			uint8_t tileX = scrollX + x;
 			uint8_t tileColumn = tileX % 8;
 			uint8_t tileIndex = mmuReadByte(display->mmu, mapAddress + (tileX / 8) + (tileY / 8) * 32);
-			tileIndex += dataAddress == 0x8800 ? 128 : 0; // Set signed addressing
+			tileIndex += dataAddress == 0x8800 ? 128 : 0; // Set signed bit for 0x8800 (signed addressing)
 
 			/**
 			 * 16 Bytes in a tile
@@ -158,7 +158,6 @@ void displayRender(Display *display)
 	 * Sprite layer
 	 */
 	if (lcdc & 0x2) {
-		uint16_t oamAddress = 0xFE00;
 		uint8_t spriteHeight = lcdc & 0x4 ? 16 : 8;
 
 		for (int i = 0; i < 40; i++) {
@@ -166,29 +165,30 @@ void displayRender(Display *display)
 			 * 4 Bytes per OAM record
 			 */
 			uint8_t spriteOffset = i * 4;
-			uint8_t spriteAddress = mmuReadByte(display->mmu, oamAddress + spriteOffset + 2);
-			uint8_t spriteData = mmuReadByte(display->mmu, oamAddress + spriteOffset + 3);
+			uint8_t spriteAddress = mmuReadByte(display->mmu, 0xFE00 + spriteOffset + 2); // 0xFE00 = OAM Address
+			uint8_t spriteFlags = mmuReadByte(display->mmu, 0xFE00 + spriteOffset + 3); // 0xFE00 = OAM Address
 
-			uint8_t posX = mmuReadByte(display->mmu, oamAddress + spriteOffset + 1) - 8;
-			uint8_t posY = mmuReadByte(display->mmu, oamAddress + spriteOffset) - 16;
+			uint8_t posX = mmuReadByte(display->mmu, 0xFE00 + spriteOffset + 1) - 8; // 0xFE00 = OAM Address
+			uint8_t posY = mmuReadByte(display->mmu, 0xFE00 + spriteOffset) - 16; // 0xFE00 = OAM Address
 
-			// TODO: Early return.
-			if (display->scanline >= posY && display->scanline < (posY + spriteHeight)) {
-				uint8_t spriteY = spriteData & 0x40 ? spriteHeight - (display->scanline - posY) : display->scanline - posY; /* Flip Y */
+			if (display->scanline < posY || display->scanline >= (posY + spriteHeight)) {
+				continue;
+			}
 
-				/**
-				 * 16 Bytes in a sprite
-				 * 2 Bytes in a line
-				 */
-				uint16_t spriteLine = mmuReadWord(display->mmu, 0x8000 + (spriteAddress * 16) + (spriteY * 2));
+			uint8_t spriteY = spriteFlags & 0x40 ? spriteHeight - (display->scanline - posY) : display->scanline - posY; /* Flip Y */
 
-				for (int x = 0; x < 8; x++) {
-					uint8_t pixelIndex = spriteData & 0x20 ? 1 << x : 1 << (7 - x); /* Flip X */
-					int pixelColor = displayGetColor(spriteLine, pixelIndex);
+			/**
+			 * 16 Bytes in a sprite
+			 * 2 Bytes in a line
+			 */
+			uint16_t spriteLine = mmuReadWord(display->mmu, 0x8000 + (spriteAddress * 16) + (spriteY * 2));
 
-					if (posX + x > 0 && posX + x < 160 && pixelColor > 0) {
-						display->render(posX + x, display->scanline, pixelColor);
-					}
+			for (int x = 0; x < 8; x++) {
+				uint8_t pixelMask = spriteFlags & 0x20 ? 1 << x : 1 << (7 - x); /* Flip X */
+				int pixelColor = displayGetColor(spriteLine, pixelMask);
+
+				if (posX + x > 0 && posX + x < 160 && pixelColor > 0) {
+					display->render(posX + x, display->scanline, pixelColor);
 				}
 			}
 		}
@@ -202,8 +202,8 @@ void displayRender(Display *display)
 		uint16_t mapAddress = lcdc & 0x40 ? 0x9C00 : 0x9800;
 		uint16_t dataAddress = lcdc & 0x10 ? 0x8000 : 0x8800;
 
-		uint8_t windowX = mmuReadByte(display->mmu, 0xFF4B); /* 0xFF4B = Window position X */
-		uint8_t windowY = mmuReadByte(display->mmu, 0xFF4A); /* 0xFF4A = Window position Y */
+		uint8_t windowX = mmuReadByte(display->mmu, 0xFF4B); // 0xFF4B = Window position X
+		uint8_t windowY = mmuReadByte(display->mmu, 0xFF4A); // 0xFF4A = Window position Y
 
 		uint8_t tileY = display->scanline - windowY;
 		uint8_t tileRow = tileY % 8;
@@ -212,7 +212,7 @@ void displayRender(Display *display)
 			uint8_t tileX = x - windowX;
 			uint8_t tileColumn = tileX % 8;
 			uint8_t tileIndex = mmuReadByte(display->mmu, mapAddress + (tileX / 8) + (tileY / 8) * 32);
-			tileIndex += dataAddress == 0x8800 ? 128 : 0; /* Set signed addressing */
+			tileIndex += dataAddress == 0x8800 ? 128 : 0; // Set signed bit for 0x8800 (signed addressing)
 
 			/**
 			 * 16 Bytes in a tile
@@ -225,7 +225,7 @@ void displayRender(Display *display)
 	}
 }
 
-int displayGetColor(uint16_t tileLine, uint8_t colorBit)
+int displayGetColor(uint16_t tileLine, uint8_t pixelMask)
 {
-	return ((tileLine & 0xFF) & colorBit ? 1 : 0) + ((tileLine >> 8) & colorBit ? 2 : 0);
+	return ((tileLine & 0xFF) & pixelMask ? 1 : 0) + ((tileLine >> 8) & pixelMask ? 2 : 0);
 }
